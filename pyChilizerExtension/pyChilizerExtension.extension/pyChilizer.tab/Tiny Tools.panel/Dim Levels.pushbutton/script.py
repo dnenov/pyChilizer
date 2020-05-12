@@ -1,4 +1,4 @@
-"""Allows you to quickly renubmer the Viewports on a Sheet by the order of selection."""
+"""Create Dimension Lines between Grids."""
 
 __title__ = 'Dim Levels'
 
@@ -79,13 +79,10 @@ for gr in grids:
         s = s + str(type(obj)) + "\n"
         if isinstance(obj, DB.Line):
             ref = obj.Reference
-            ref_array.append(ref)
+            ref_array.Append(ref)
 
 pick_point = uidoc.Selection.PickPoint()
 line = DB.Line.CreateBound(pick_point, pick_point + direction * 100)
 
 with revit.Transaction("Dim Grids", doc=doc):
     doc.Create.NewDimension(active_view, line, ref_array)
-
-#TaskDialog.Show("Check", str(len(ref_array)))
-#TaskDialog.Show("Check", s)
