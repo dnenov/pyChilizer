@@ -26,5 +26,8 @@ For more information you can refer to pyRevit [website](https://www.notion.so/py
 
 ### Icon Library
 [icons8](https://icons8.com/icon/set/first/windows)
+
 [material design](https://www.material.io/resources/icons/?icon=format_align_center&style=baseline)
+
+Icon Color - #2c3e50
 
