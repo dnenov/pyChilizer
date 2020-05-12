@@ -17,7 +17,7 @@ To make use of this extension, you will need to install pyRevit first. Then loca
 
 ### Step 2
 
-![how-to-step-2](https://github.com/2adicted/pyChilizer/blob/master/images/how-to-2.PNG "Step 2")
+<img src="https://github.com/2adicted/pyChilizer/blob/master/images/how-to-2.PNG" alt="test image size" height="50%" width="50%">
 
 
 For more information you can refer to pyRevit [website](https://www.notion.so/pyRevit-bd907d6292ed4ce997c46e84b6ef67a0).
