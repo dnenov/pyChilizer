@@ -1,7 +1,7 @@
-"""Removes uplaced rooms in project"""
-__title__ = "Remove\nUnplaced\nRooms"
+__title__= "Remove \nUnplaced Rooms"
+__doc__ = "Delete unplaced rooms from project"
+
 # pylint: disable=invalid-name,import-error,superfluous-parens
-from collections import Counter
 
 from pyrevit import revit, DB
 from pyrevit import script
@@ -16,7 +16,6 @@ with revit.Transaction("Remove Unplaced Rooms"):
         .WhereElementIsNotElementType() \
         .ToElements()
 
-    values = []
     unplaced_ids = []
     for r in rooms:
         room_areas = r.Parameter[DB.BuiltInParameter.ROOM_AREA]
