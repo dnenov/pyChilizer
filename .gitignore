@@ -6,6 +6,7 @@
 .idea/modules.xml
 .idea/pyChilizer.iml
 .idea/vcs.xml
+.idea
 
 # Generated files
 .idea/**/contentModel.xml
