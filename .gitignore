@@ -7,6 +7,10 @@
 .idea/pyChilizer.iml
 .idea/vcs.xml
 .idea
+.iws
+
+**/.idea/workspace.xml
+**/.idea/tasks.xml
 
 # Generated files
 .idea/**/contentModel.xml
