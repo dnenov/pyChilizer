@@ -1,20 +1,13 @@
 __title__ = "Find nearest\n neighbour"
 __doc__ = ""
 
-
-from itertools import izip
-from pyrevit import revit, DB, script, forms, HOST_APP
-from time import time
-
-import math
-
-from pyrevit import HOST_APP
 from pyrevit import revit, DB
+from pyrevit.framework import List
 
 
-def CreateLine(doc, line):
+def CreateLine(doc, line, dir):
     with revit.Transaction("draw line"):
-        plane = DB.Plane.CreateByNormalAndOrigin(DB.XYZ(0,0,1), line.GetEndPoint(0))
+        plane = DB.Plane.CreateByNormalAndOrigin(dir, line.GetEndPoint(0))
         sketch_plane = DB.SketchPlane.Create(doc, plane)
         curve = doc.Create.NewModelCurve(line, sketch_plane)
 
@@ -22,42 +15,39 @@ def CreateLine(doc, line):
 # to do later : create filter if not active 3D view
 curview = revit.active_view
 
-# collect all windows instances
-windows = DB.FilteredElementCollector(revit.doc) \
-    .OfCategory(DB.BuiltInCategory.OST_Windows) \
+cat_filters = [DB.ElementCategoryFilter(DB.BuiltInCategory.OST_Windows),
+               DB.ElementCategoryFilter(DB.BuiltInCategory.OST_Doors),
+               DB.ElementCategoryFilter(DB.BuiltInCategory.OST_Walls)]
+
+cat_filter = DB.LogicalOrFilter(List[DB.ElementFilter](cat_filters))
+
+elements = DB.FilteredElementCollector(revit.doc) \
+    .WherePasses(cat_filter) \
     .WhereElementIsNotElementType() \
-    .ToElements()
+    .ToElementIds()
 
 # filter nested by not hosted on wall - MAYBE BETTER FILTER
-#nested_win = [w for w in windows if not isinstance(w.Host, DB.Wall)]
-#host_wall = [w.Host for w in windows if isinstance(w.Host, DB.Wall)]
+# nested_win = [w for w in windows if not isinstance(w.Host, DB.Wall)]
+# host_wall = [w.Host for w in windows if isinstance(w.Host, DB.Wall)]
 
-#wall_curve = host_wall[0].Location
-#wall_centerplane = DB.XYZ(wall_curve.Curve.GetEndPoint(0).X, wall_curve.Curve.GetEndPoint(0).Z, 1500 )
+# wall_curve = host_wall[0].Location
+# wall_centerplane = DB.XYZ(wall_curve.Curve.GetEndPoint(0).X, wall_curve.Curve.GetEndPoint(0).Z, 1500 )
 
 win = revit.pick_element("pick a window")
-
-# win = revit.doc.GetElement(revit.pick_element("pick a window").Id)
 
 fam_filter = DB.ElementClassFilter(DB.FamilyInstance)
 wall_filter = DB.ElementClassFilter(DB.Wall)
 
-class_filter = DB.LogicalAndFilter(fam_filter, wall_filter)
-
-target = DB.FindReferenceTarget.Face
-ref_int = DB.ReferenceIntersector(class_filter, target, curview)
+class_filter = DB.LogicalOrFilter(fam_filter, wall_filter)
 
 bb = win.get_BoundingBox(curview)
 x = win.Location.Point.X
 y = win.Location.Point.Y
-location_pt = DB.XYZ(x, y, (bb.Max.Z + bb.Min.Z)*0.5)
+location_pt = DB.XYZ(x, y, (bb.Max.Z + bb.Min.Z) * 0.5)
 
 rotation = win.Location.Rotation
-host = win.SuperComponent.Host
-direction = host.Location.Curve.Direction
-
-# print(str(rotation * 180/3.14))
-# print(str(host.Id))
+host_win = win.SuperComponent
+host = host_win.Host
 
 facing = win.FacingOrientation
 direction_down = DB.XYZ(0, 0, -1)
@@ -65,10 +55,29 @@ direction_up = DB.XYZ(0, 0, 1)
 direction_right = win.HandOrientation.Normalize()
 direction_left = direction_right.Negate()
 
-# print(str(facing.AngleTo(direction_left)))
+line = DB.Line.CreateBound(location_pt, location_pt + 2 * direction_up)
+# CreateLine(revit.doc, line, DB.XYZ(1, 0, 0))  # Keep for visual debugging
 
-line = DB.Line.CreateBound(location_pt, location_pt + 2*direction_left)
-CreateLine(revit.doc, line)
+elementIds = []
+
+# Skip myself and my parent window host
+for element in elements:
+    if element.IntegerValue == host_win.Id.IntegerValue:
+        continue
+    if element.IntegerValue == win.Id.IntegerValue:
+        continue
+    elementIds.append(element)
+
+target = DB.FindReferenceTarget.All
+ref_int = DB.ReferenceIntersector(List[DB.ElementId](elementIds), target, curview)
+
+nearest_up = ref_int.FindNearest(location_pt, direction_up)
+shot = nearest_up.GetReference()
+
+selection = revit.get_selection()
+
+element_ids = [shot.ElementId]
+selection.set_to(element_ids)
 
 # nearest_up = ref_int.Find(location_pt, direction_up)
 # ups = []
@@ -132,7 +141,7 @@ CreateLine(revit.doc, line)
 #         pass
 
 
-    # illustrate with line
+# illustrate with line
 #    line = DB.Line.CreateBound(bb.Max, direction)
 
 #    x = bb.Max.X
@@ -141,9 +150,9 @@ CreateLine(revit.doc, line)
 
 #    normal = DB.XYZ(x,y,z)
 
- #   origin = center
+#   origin = center
 
 #    with revit.Transaction("draw line"):
 #        plane = DB.Plane.CreateByNormalAndOrigin(normal, origin)
 #        sketch_plane = DB.SketchPlane.Create(revit.doc, plane)
- #       model_line = revit.doc.Create.NewModelCurve(line, sketch_plane)
+#       model_line = revit.doc.Create.NewModelCurve(line, sketch_plane)
