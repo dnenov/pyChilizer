@@ -121,8 +121,8 @@ windows = DB.FilteredElementCollector(revit.doc) \
 # filter nested by not hosted on wall - MAYBE BETTER FILTER
 # this bugs out for some reason on a live project - I added a Type Comment filter, still not good maybe :/
 phpp_win = [w for w in windows if revit.doc.GetElement(w.GetTypeId()).get_Parameter(DB.BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsString() == "Panel"]
-# nested_win = [w for w in windows if not isinstance(w.Host, DB.Wall)]
-# host_wall = [w.Host for w in windows if isinstance(w.Host, DB.Wall)]
+nested_win = [w for w in windows if not isinstance(w.Host, DB.Wall)]
+host_wall = [w.Host for w in windows if isinstance(w.Host, DB.Wall)]
 
 if len(phpp_win) == 0:
     print("No panels with Type Comment = 'Panel' found.")
