@@ -1,4 +1,4 @@
-__title__ = "Ungroup \n all"
+__title__ = "Ungroup all"
 __doc__ = "Ungroups all groups in project"
 
 from pyrevit import revit, DB, script, forms

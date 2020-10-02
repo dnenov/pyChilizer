@@ -1,8 +1,7 @@
-__title__ = "Workset by category"
+__title__ = "Workset by Category"
 __doc__ = "Appoints elements to worksets by category. Works only with ungrouped elements. Supports only common architectural categories"
 
 from pyrevit import revit, DB, script, forms
-from itertools import izip
 
 def check_ungrouped():
     # Check that all elements have been ungrouped
@@ -11,7 +10,7 @@ def check_ungrouped():
         .WhereElementIsNotElementType() \
         .ToElements()
     if coll_groups:
-        forms.alert("Ungroup elements first", warn_icon = True)
+        forms.alert("Ungroup elements first", warn_icon=True)
         return False
     return True
 
@@ -21,10 +20,12 @@ cat_dict = {
     "Floor":    DB.BuiltInCategory.OST_Floors,
     "Slab":     DB.BuiltInCategory.OST_Floors,
     "Stair":    DB.BuiltInCategory.OST_Stairs,
-    "Railings": DB.BuiltInCategory.OST_Railings,
+    "Railing": DB.BuiltInCategory.OST_StairsRailing,
     "Doors":    DB.BuiltInCategory.OST_Doors,
     "Furniture": DB.BuiltInCategory.OST_Furniture,
     "Plumbing": DB.BuiltInCategory.OST_PlumbingFixtures,
+    "Roof": DB.BuiltInCategory.OST_Roofs,
+    "Ceiling": DB.BuiltInCategory.OST_Ceilings,
 }
 
 
@@ -42,7 +43,7 @@ if forms.check_workshared(revit.doc, 'Model is not workshared.'):
             with revit.Transaction(keyword, revit.doc):
                 for ws in coll_worksets:
                     # check for keyword in workset name
-                    if keyword in ws.Name: # TO DO: use uppercase and lowercase with 'or' condition
+                    if keyword in ws.Name or keyword.upper() in ws.Name or keyword.lower() in ws.Name:
 
                         # inverted workset filter - pick up elements that are not in workset
                         ws_filter = DB.ElementWorksetFilter(ws.Id, True)
