@@ -156,7 +156,6 @@ for wall in ins_walls:
         if profile: # if wall has edited profile, recreate profile
             # create new wall by profile, wall type, level, structural
             new_wall = DB.Wall.Create(revit.doc, profile, chosen_wall_type.Id, wall.LevelId, structural)
-            print ("created wall id", new_wall.Id)
 
         # if wall is attached, read its geometry and represent it with a profile
         elif wall.get_Parameter(DB.BuiltInParameter.WALL_TOP_IS_ATTACHED).AsInteger() == 1 \
