@@ -43,7 +43,6 @@ def FindSingleIntersection(_win, _host_win, _elements, _current_view, _location_
         return shot    
     except:
         pass
-    
 
 
 # Populate the PHPP ThermalValue parameter
@@ -60,13 +59,14 @@ def PopulateThermalValue(_win, _dir, _intersection):
 
     with revit.Transaction("populate parameter"):
         if _dir == "up":
-            _win.LookupParameter("ART_ThermalBridgeValue_Top").Set(value)
+            # print(str(_win.Name) + " : " + str(value))
+            _win.LookupParameter("ART_ThermalBridgeValue_Top").Set(str(value))
         elif _dir == "down":
-            _win.LookupParameter("ART_ThermalBridgeValue_Bottom").Set(value)
+            _win.LookupParameter("ART_ThermalBridgeValue_Bottom").Set(str(value))
         elif _dir == "left":
-            _win.LookupParameter("ART_ThermalBridgeValue_Left").Set(value)
+            _win.LookupParameter("ART_ThermalBridgeValue_Left").Set(str(value))
         else:
-            _win.LookupParameter("ART_ThermalBridgeValue_Right").Set(value)
+            _win.LookupParameter("ART_ThermalBridgeValue_Right").Set(str(value))
 
 
 # Find the intersections for each Window and populate the thermal value
