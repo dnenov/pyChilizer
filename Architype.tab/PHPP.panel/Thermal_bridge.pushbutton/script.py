@@ -5,6 +5,7 @@ from pyrevit import revit, DB
 from pyrevit.framework import List
 from pyrevit.forms import ProgressBar
 
+
 # Creates a model line; used for debugging
 def CreateLine(doc, line, dir):
     with revit.Transaction("draw line"):
@@ -19,7 +20,7 @@ def CleanElementIds(_elements, _win, _host_win):
 
     # Skip myself and my parent window host
     for element in elements:
-        if element.IntegerValue == _host_win.Id.IntegerValue:
+        if element.IntegerValue == _host_win.Id.IntegerValue and not revit.doc.IsFamilyDocument:
             continue
         if element.IntegerValue == _win.Id.IntegerValue:
             continue
@@ -49,13 +50,14 @@ def FindSingleIntersection(_win, _host_win, _elements, _current_view, _location_
 # TO DO: Handle no parameter - possible UI improvement solution?
 def PopulateThermalValue(_win, _dir, _intersection):
     if not _intersection:
-        return
-    cat = revit.doc.GetElement(_intersection).Category
-    # if cat.Name == "Walls":
-    if cat.Id.IntegerValue == int(DB.BuiltInCategory.OST_Walls):
         value = 1
     else:
-        value = 0
+        cat = revit.doc.GetElement(_intersection).Category
+        # if cat.Name == "Walls":
+        if cat.Id.IntegerValue == int(DB.BuiltInCategory.OST_Walls):
+            value = 1
+        else:
+            value = 0
 
     with revit.Transaction("populate parameter"):
         if _dir == "up":
@@ -70,20 +72,29 @@ def PopulateThermalValue(_win, _dir, _intersection):
 
 
 # Find the intersections for each Window and populate the thermal value
-# TO DO: Handle no intersection
+# TO DO: Handle no intersection - Update 26/11/20 handled by assuming value = 1 when no intersection
 def PopulateIntersection(_win, _elements, _current_view,):
     bb = _win.get_BoundingBox(_current_view)
     x = _win.Location.Point.X
     y = _win.Location.Point.Y
     location_pt = DB.XYZ(x, y, (bb.Max.Z + bb.Min.Z) * 0.5)
 
-    host_win = _win.SuperComponent  # The root window
-    host = host_win.Host    # The wall ultimately hosted; not used now
+    if revit.doc.IsFamilyDocument:
+        wall = DB.FilteredElementCollector(revit.doc) \
+            .OfCategory(DB.BuiltInCategory.OST_Walls) \
+            .WhereElementIsNotElementType() \
+            .ToElements()
+
+        host_win = wall[0]
+    else:
+        host_win = _win.SuperComponent  # The root window
+
+    # host_win = _win.SuperComponent  # The root window
 
     direction_up = DB.XYZ(0, 0, 1)
     direction_down = DB.XYZ(0, 0, -1)
-    direction_right = _win.HandOrientation.Normalize()
-    direction_left = direction_right.Negate()
+    direction_left = _win.HandOrientation.Normalize()   # The left will be read from outside-in
+    direction_right = direction_left.Negate()
 
     up = FindSingleIntersection(_win, host_win, _elements, _current_view, location_pt, direction_up)
     down = FindSingleIntersection(_win, host_win, _elements, _current_view, location_pt, direction_down)
@@ -120,7 +131,8 @@ windows = DB.FilteredElementCollector(revit.doc) \
 
 # filter nested by not hosted on wall - MAYBE BETTER FILTER
 # this bugs out for some reason on a live project - I added a Type Comment filter, still not good maybe :/
-phpp_win = [w for w in windows if revit.doc.GetElement(w.GetTypeId()).get_Parameter(DB.BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsString() == "Panel"]
+phpp_win = [w for w in windows if revit.doc.GetElement(w.GetTypeId()).get_Parameter(
+    DB.BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsString() == "Panel"]
 nested_win = [w for w in windows if not isinstance(w.Host, DB.Wall)]
 host_wall = [w.Host for w in windows if isinstance(w.Host, DB.Wall)]
 
@@ -134,6 +146,14 @@ if len(phpp_win) == 0:
 counter = 0
 max_value = len(phpp_win)
 
+names = ''
+
+elements = [e for e in elements if "Default" not in revit.doc.GetElement(e).Name]
+# for el in elements:
+#     names += revit.doc.GetElement(el).Family.Name + '\n'
+
+print(names)
+
 with ProgressBar(cancellable=True, step=1) as pb:
     with revit.TransactionGroup('Populate Thermal Bridge Values'):
         for win in phpp_win:
@@ -145,3 +165,4 @@ with ProgressBar(cancellable=True, step=1) as pb:
                 counter += 1
 
 print("Successfully processed {} windows panels".format(max_value))
+
