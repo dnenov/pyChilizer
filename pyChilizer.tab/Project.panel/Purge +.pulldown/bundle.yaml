@@ -6,3 +6,5 @@ layout:
   - Purge unused sheets
   - Purge unused view templates
   - Purge views not on sheets
+  - Purge unused filters
+  - Purge unplaced rooms

@@ -1,4 +1,4 @@
-__title__ = "Workset by Category"
+__title__ = "Workset\nby Category"
 __doc__ = "Appoints elements to worksets by category. Works only with ungrouped elements. Supports only common architectural categories"
 
 from pyrevit import revit, DB, script, forms
