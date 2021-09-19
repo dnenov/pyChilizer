@@ -5,6 +5,7 @@ from pyrevit import forms
 
 files = 0
 lengths = 0
+files_to_delete = []
 
 def GetDirectories(_path, _search_pat = "*", _search_opt = System.IO.SearchOption.TopDirectoryOnly):
     if _search_opt is System.IO.SearchOption.TopDirectoryOnly:
@@ -34,8 +35,7 @@ def DeleteRecursive(_dir):
     for file in dir_info.EnumerateFiles("*.0???.*"):
         lengths += file.Length
         files += 1
-        file.Delete()
-
+        files_to_delete.append(file)
 
 
 # Enum for size units
@@ -70,8 +70,13 @@ def Delete():
 
     b = convert_unit(lengths, SIZE_UNIT.MB)
 
-    print(str(files) + ' files with a total of ' + str(b) + ' MB deleted.')
+    message = 'You are about to delete ' +\
+              str(files) + ' files with a total of ' + str(b) + ' MB. Are you sure?'
 
+    if forms.alert(message, ok=False, yes=True, no=True, exitscript=True):
+        for file in files_to_delete:
+            file.Delete()
+        print(str(files) + ' files with a total of ' + str(b) + ' MB deleted.')
 
 
 Delete()
