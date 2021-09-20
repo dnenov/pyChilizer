@@ -14,6 +14,18 @@ def check_ungrouped():
         return False
     return True
 
+
+def discard_grouped(elements):
+    """discard grouped elements"""
+    return [el for el in elements if el.GroupId == DB.ElementId.InvalidElementId and not isinstance(el, DB.Group)]
+
+
+def count_grouped(els):
+    # count how many grouped elements in list
+    grouped_els = [el for el in els if not el.GroupId == DB.ElementId.InvalidElementId]
+    return len(grouped_els)
+
+
 cat_dict = {
     "Wall":     DB.BuiltInCategory.OST_Walls,
     "Window":   DB.BuiltInCategory.OST_Windows,
@@ -26,43 +38,46 @@ cat_dict = {
     "Plumbing": DB.BuiltInCategory.OST_PlumbingFixtures,
     "Roof": DB.BuiltInCategory.OST_Roofs,
     "Ceiling": DB.BuiltInCategory.OST_Ceilings,
+    "Topography": DB.BuiltInCategory.OST_Topography
 }
 
 
 # Check model is workshared
 if forms.check_workshared(revit.doc, 'Model is not workshared.'):
     # Check all elements are ungrouped
-    if check_ungrouped():
 
-        # Collect all worksets in model with Filtered Workset Collector
-        coll_worksets = DB.FilteredWorksetCollector(revit.doc).OfKind(DB.WorksetKind.UserWorkset)
 
-        # Iterate through categories in dictionary
+    # Collect all worksets in model with Filtered Workset Collector
+    coll_worksets = DB.FilteredWorksetCollector(revit.doc).OfKind(DB.WorksetKind.UserWorkset)
 
-        for keyword in cat_dict:
-            with revit.Transaction(keyword, revit.doc):
-                for ws in coll_worksets:
-                    # check for keyword in workset name
-                    if keyword in ws.Name or keyword.upper() in ws.Name or keyword.lower() in ws.Name:
+    # Iterate through categories in dictionary
 
-                        # inverted workset filter - pick up elements that are not in workset
-                        ws_filter = DB.ElementWorksetFilter(ws.Id, True)
-                        # collect all elements of category
-                        coll_elements = DB.FilteredElementCollector(revit.doc) \
+    for keyword in cat_dict:
+        with revit.Transaction(keyword, revit.doc):
+            for ws in coll_worksets:
+                # check for keyword in workset name
+                if keyword in ws.Name or keyword.upper() in ws.Name or keyword.lower() in ws.Name:
+
+                    # inverted workset filter - pick up elements that are not in workset
+                    ws_filter = DB.ElementWorksetFilter(ws.Id, True)
+                    # collect all elements of category
+                    coll_elements = DB.FilteredElementCollector(revit.doc) \
                             .OfCategory(cat_dict[keyword]) \
                             .WherePasses(ws_filter) \
                             .WhereElementIsNotElementType() \
                             .ToElements()
+                    discarded = count_grouped(coll_elements)
+                    coll_not_in_groups = discard_grouped(coll_elements)
+                    counter = 0
+                    for w in coll_not_in_groups:
 
-                        counter = 0
-                        for w in coll_elements:
-                            # for each element get workset parameter
-                            w_param = w.get_Parameter(DB.BuiltInParameter.ELEM_PARTITION_PARAM)
-                            if not w_param.IsReadOnly: # don't touch elements with read-only parameter
-                                try:
-                                    w_param.Set(ws.Id.IntegerValue) # set workset
-                                    counter += 1
-                                finally:
-                                    pass
+                        # for each element get workset parameter
+                        w_param = w.get_Parameter(DB.BuiltInParameter.ELEM_PARTITION_PARAM)
+                        if not w_param.IsReadOnly: # don't touch elements with read-only parameter
+                            try:
+                                w_param.Set(ws.Id.IntegerValue) # set workset
+                                counter += 1
+                            finally:
+                                pass
                         # annotate process
-                        print("Sorted {} elements to workset {}".format(counter, ws.Name))
+                    print("Sorted {} elements to workset {}".format(counter, ws.Name))
