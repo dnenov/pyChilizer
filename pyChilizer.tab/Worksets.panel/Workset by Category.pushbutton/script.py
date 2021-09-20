@@ -80,4 +80,4 @@ if forms.check_workshared(revit.doc, 'Model is not workshared.'):
                             finally:
                                 pass
                         # annotate process
-                    print("Sorted {} elements to workset {}".format(counter, ws.Name))
+                    print("Sorted {} elements to workset {}. {} elements discarded (in groups)".format(counter, ws.Name, discarded))
