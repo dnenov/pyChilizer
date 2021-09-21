@@ -8,3 +8,5 @@ layout:
   - Purge views not on sheets
   - Purge unused filters
   - Purge unplaced rooms
+  - Purge unplaced areas
+  - Purge unenclosed areas
