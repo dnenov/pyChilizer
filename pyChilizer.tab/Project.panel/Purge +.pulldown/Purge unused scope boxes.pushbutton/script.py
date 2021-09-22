@@ -1,4 +1,4 @@
-__title__ = "Purge Unused Scope Boxes"
+__title__ = "Purge unused scope boxes"
 
 from pyrevit import revit, DB, forms, script
 
@@ -21,6 +21,10 @@ def filter_sb_viewtypes(views):
 
 # collect all scope boxes
 coll_scope = DB.FilteredElementCollector(revit.doc).OfCategory(DB.BuiltInCategory.OST_VolumeOfInterest).ToElementIds()
+
+# exit if Scope Boxes found
+forms.alert_ifnot(coll_scope, "No Scope Boxes in model.", exitscript=True)
+
 # collect all views
 coll_views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View).WhereElementIsNotElementType()
 # filter views compatible with scope boxes
@@ -36,21 +40,27 @@ for view in compatible_views:
     except:
         pass
 
-with revit.Transaction("Purge Unused Scope Boxes"):
-    # get ids of areas with location and zero area
-    unused_ids = [sb for sb in coll_scope if sb not in set(used_sb)]
+# get unused scope boxes ids
+unused_ids = [sb for sb in coll_scope if sb not in set(used_sb)]
 
-    deleted = []  # to keep track of elements deleted
+forms.alert_ifnot(unused_ids, "All Scope Boxes are in use, well done!", exitscript=True)
 
-    # remove unused scope boxes
-    for usb_id in unused_ids:
-        deleted.append(revit.doc.GetElement(usb_id).Name)
-        revit.doc.Delete(usb_id)
+message = 'There are {} unused Scope Boxes in the model. Are you sure you want to delete them?'.format(str(len(unused_ids)))
 
-    # print result
-    if not deleted:
-        print ("No Scope Boxes were deleted.")
-    else:
-        print("Purged unused Scope Boxes:")
-        for d in deleted:
-            print(d)
+if forms.alert(message, ok=False, yes=True, no=True, exitscript=True):
+    with revit.Transaction("Delete unused scope boxes"):
+
+        deleted = []  # to keep track of elements deleted
+
+        # remove unused scope boxes
+        for usb_id in unused_ids:
+            deleted.append(revit.doc.GetElement(usb_id).Name)
+            revit.doc.Delete(usb_id)
+
+        # print result
+        if not deleted:
+            print ("No Scope Boxes were deleted.")
+        else:
+            print("SCOPE BOXES DELETED:")
+            for d in deleted:
+                print("{}".format(d))

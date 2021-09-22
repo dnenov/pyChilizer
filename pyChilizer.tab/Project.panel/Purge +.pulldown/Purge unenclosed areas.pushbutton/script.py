@@ -1,25 +1,28 @@
-__title__= "Remove \nUnenclosed Areas"
+__title__= "Remove \nunenclosed areas"
 __doc__ = "Delete unenclosed areas from project"
 
-from pyrevit import revit, DB
+from pyrevit import revit, DB, forms
 
 # collect
-with revit.Transaction("Remove Unenclosed Areas"):
-    areas = DB.FilteredElementCollector(revit.doc) \
+areas = DB.FilteredElementCollector(revit.doc) \
         .OfCategory(DB.BuiltInCategory.OST_Areas) \
         .WhereElementIsNotElementType() \
         .ToElements()
 
+forms.alert_ifnot(areas, "No Areas in model.", exitscript=True)
 
-    # get ids of areas with location and zero area
-    unplaced_ids = [a.Id for a in areas if a.Location and a.Area == 0]
+# get ids of areas with location and zero area
+unenclosed_ids = [a.Id for a in areas if a.Location and a.Area == 0]
+
+forms.alert_ifnot(unenclosed_ids, "All Areas are enclosed, good job", exitscript=True)
+
+with revit.Transaction("Delete unenclosed areas"):
 
     deleted = [] # to keep track of elements deleted
-
-    # remove unplaced areas
-    for upid in unplaced_ids:
+    # remove unenclosed areas
+    for upid in unenclosed_ids:
         revit.doc.Delete(upid)
         deleted.append(upid)
 
     # print result
-    print("Removed {0} unplaced areas".format(len(deleted)))
+    print("Removed {} unenclosed areas".format(len(deleted)))
