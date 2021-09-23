@@ -1,0 +1,12 @@
+layout:
+  - Purge delete backups
+  - Purge dwg patterns
+  - Purge imported dwg
+  - Purge unused scope boxes
+  - Purge unused sheets
+  - Purge unused view templates
+  - Purge views not on sheets
+  - Purge unused filters
+  - Purge unplaced rooms
+  - Purge unplaced areas
+  - Purge unenclosed areas
