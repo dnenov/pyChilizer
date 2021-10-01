@@ -1,4 +1,4 @@
-__title__ = "InPlace to Loadable"
+__title__ = "InPlace to\nLoadable"
 __doc__ = "Transform one In-Place element to a loadable family. Will always use GM category. Subcategories will be respected"
 
 
