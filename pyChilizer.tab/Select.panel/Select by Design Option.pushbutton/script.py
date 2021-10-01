@@ -1,4 +1,4 @@
-__title__ = "Select by Design Option"
+__title__ = "Select by\nDesign Option"
 __doc__ = "Select elements of a design option"
 
 
