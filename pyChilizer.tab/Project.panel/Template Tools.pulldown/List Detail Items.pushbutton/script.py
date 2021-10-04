@@ -23,12 +23,12 @@ vertical_spacing = 2
 line_length = 2
 
 with revit.Transaction("do something"):
-    # need to activate a family symbol before creation
-    if dc_viewbased[0].IsActive == False:
-        dc_viewbased[0].Activate()
-        
+     
     for dc in dc_viewbased:
-
+        
+        # need to activate a family symbol before creation
+        if dc.IsActive == False:
+            dc.Activate()
         new_dc_viewbased = revit.doc.Create.NewFamilyInstance(symbol_origin, dc, view)
         fam_name = " : ".join(["Family", dc.Family.Name])
         type_name = " : ".join(["Type", str(dc.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString())])
@@ -42,7 +42,11 @@ with revit.Transaction("do something"):
 
 
     for dcc in dc_curvebased:
-
+        
+        # need to activate a family symbol before creation
+        if dc.IsActive == False:
+            dc.Activate()
+            
         p1 = DB.XYZ(0, symbol_origin.Y, 0)
         p2 = DB.XYZ(line_length, symbol_origin.Y, 0 )
 
