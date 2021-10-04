@@ -23,6 +23,10 @@ vertical_spacing = 2
 line_length = 2
 
 with revit.Transaction("do something"):
+    # need to activate a family symbol before creation
+    if dc_viewbased[0].IsActive == False:
+        dc_viewbased[0].Activate()
+        
     for dc in dc_viewbased:
 
         new_dc_viewbased = revit.doc.Create.NewFamilyInstance(symbol_origin, dc, view)
