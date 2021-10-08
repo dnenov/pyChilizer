@@ -1,15 +1,15 @@
 __title__ = "InPlace to\nLoadable"
-__doc__ = "Transform one In-Place element to a loadable family. Will always use GM category. Subcategories will be respected"
-
+__doc__ = "Select an In-Place element to convert into a Loadable family and place in the same location. " \
+          "Subcategories will be respected" \
+          "Will assign a"
 
 from pyrevit import revit, DB, UI, HOST_APP, forms, script
-from collections import defaultdict
 import tempfile
 from pyrevit.revit.db import query
-from pyrevit.framework import List
-
+from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 output = script.get_output()
-close_other_output = output.close_others(all_open_outputs=True)
+from Autodesk.Revit import Exceptions
+import rpw
 
 
 def get_fam(some_name, category=DB.BuiltInCategory.OST_GenericModel):
@@ -22,23 +22,29 @@ def get_fam(some_name, category=DB.BuiltInCategory.OST_GenericModel):
     return found_fam
 
 
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
-    return converted
-
-
-def get_ref_lvl_plane (family_doc):
-    # from given family doc, return Ref. Level reference plane
-    find_planes = DB.FilteredElementCollector(family_doc).OfClass(DB.SketchPlane)
-    return [plane for plane in find_planes if plane.Name == "Ref. Level"]
+def sk_plane(curve):
+    try:
+        p1 = curve.Evaluate(0, True)
+    except Exceptions.ArgumentOutOfRangeException:
+        return None
+    if isinstance(curve, DB.Line):
+        p1 = curve.Evaluate(0, True)
+        tangent = curve.ComputeDerivatives(0, True).BasisX
+        normal = tangent.CrossProduct(p1)
+        plane = DB.Plane.CreateByNormalAndOrigin(normal, p1)
+        sketch_plane = DB.SketchPlane.Create(new_family_doc, plane)
+    else:
+        deriv = curve.ComputeDerivatives(1, True)
+        normal = deriv.BasisZ.Normalize()
+        plane = DB.Plane.CreateByNormalAndOrigin(normal, p1)
+        sketch_plane = DB.SketchPlane.Create(new_family_doc, plane)
+    return sketch_plane
 
 
 def get_subcat_name(element):
-    # check if geometry has a subcategory, return Subcategory Name or None
+    # check if geometry has a subcategory, return Subcategory Name or Nones
     subcat_id = element.GraphicsStyleId
-    if str(subcat_id) != "-1" :
+    if str(subcat_id) != "-1":
         return revit.doc.GetElement(subcat_id).Name
     else:
         return None
@@ -50,24 +56,39 @@ def inverted_transform_by_ref(reference):
 
 
 logger = script.get_logger()
-# try use selected elements
-selected_elements = revit.get_selection().elements
-if len(selected_elements) == 1 and forms.alert("Use selected elements?",
-                                               yes=True, no=True):
-    source_element = selected_elements[0]
-else:
-    # get in-place element(select)
-    with forms.WarningBar(title="Pick source in-place object:"):
-        source_element = revit.pick_element()
 
-forms.alert_ifnot(source_element.Symbol.Family.IsInPlace, "The selected element is not InPlace.", exitscript=True)
+
+# selection filter for InPlace elements
+class InPlaceFilter(ISelectionFilter):
+    def AllowElement(self, elem):
+        try:
+            if elem.Symbol.Family.IsInPlace:
+                return True
+            else:
+                return False
+        except AttributeError:
+            return False
+
+
+def select_inplace_filter():
+    # select elements while applying filter
+    try:
+        with forms.WarningBar(title="Select In-Place element to transform"):
+            ref = rpw.revit.uidoc.Selection.PickObject(ObjectType.Element, InPlaceFilter())
+            selection = revit.doc.GetElement(ref)
+            return selection
+    except Exceptions.OperationCanceledException:
+        forms.alert("Cancelled", ok=True, warn_icon=False, exitscript=True)
+
+
+source_element = select_inplace_filter()
 
 solids_dict = {}
+curves = []
 # get DB.GeometryElement
 geo_element = source_element.get_Geometry(DB.Options())
 bb = geo_element.GetBoundingBox()
 family_origin = bb.Min
-
 
 # iterate through DB.GeometryInstance and get all geometry, store it in a dictionary with Subcategory name
 for instance_geo in geo_element:
@@ -75,24 +96,57 @@ for instance_geo in geo_element:
     geometry_element = instance_geo.GetInstanceGeometry()
     for geo in geometry_element:
         # discard elements with 0 volume
-        if geo.Volume >0:
+        if isinstance(geo, DB.Solid) and geo.Volume >0:
+            # translate in reference to geometry's bounding box corner. \
+            # This prevents elements being copied too far from family origin.
             new_solid = DB.SolidUtils.CreateTransformed(geo, inverted_transform_by_ref(bb.Min))
             solids_dict[new_solid] = get_subcat_name(geo)
+        # also collect curves
+        elif isinstance(geo, DB.Curve):
+            new_curve = geo.CreateTransformed(inverted_transform_by_ref(bb.Min))
+            curves.append(new_curve)
 
+el_cat_id = source_element.Category.Id.IntegerValue
+
+templates_dict = {
+    -2001000: "\Metric Casework.rft",
+    -2000080: "\Metric Furniture.rft",
+    -2001040: "\Metric Electrical Equipment.rft",
+    -2001370: "\Metric Entourage.rft",
+    -2001100: "\Metric Furniture System.rft",
+    -2001120: "\Metric Lighting Fixture.rft",
+    -2001140: "\Metric Mechanical Equipment.rft",
+    -2001180: "\Metric Parking.rft",
+    -2001360: "\Metric Planting.rft",
+    -2001160: "\Metric Plumbing Fixture.rft",
+    -2001260: "\Metric Site.rft",
+    -2001350: "\Metric Specialty Equipment.rft",
+}
+template = None
+if el_cat_id in templates_dict:
+    template = templates_dict[el_cat_id]
+else:
+    template = "\Metric Generic Model.rft"
 fam_template_path = "C:\ProgramData\Autodesk\RVT " + \
-                    HOST_APP.version + "\Family Templates\English\Metric Generic Model.rft"
+                    HOST_APP.version + "\Family Templates\English" + template
+
+
 
 # define new family doc
 try:
     new_family_doc = revit.doc.Application.NewFamilyDocument(fam_template_path)
 except:
     forms.alert(msg="No Template",
-                sub_msg="There is no Generic Model Template",
+                sub_msg="No Template for family found.",
                 ok=True,
                 warn_icon=True, exitscript=True)
 
+
 # construct family and family type names:
-fam_name = "GM_"+source_element.Symbol.Family.Name
+project_number = revit.doc.ProjectInformation.Number
+if not project_number:
+    project_number = "000"
+fam_name = project_number+ "_" + source_element.Symbol.Family.Name
 # replace spaces (can cause errors)
 fam_name = fam_name.strip(" ")
 
@@ -112,12 +166,13 @@ with revit.Transaction("Load Family", revit.doc):
     try:
         loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
         revit.doc.Regenerate()
-    except Exception as err:
-        logger.error(err)
+    # TODO: catch exception of name conflict
+    except Exceptions.InvalidOperationException:
+        forms.alert("Unable to Load Family", exitscript=True)
+
 
 # Copy geometry from In-Place to Loadable family
 with revit.Transaction(doc=new_family_doc, name="Copy Geometry"):
-
     parent_cat = new_family_doc.OwnerFamily.FamilyCategory
     new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
                                                               DB.BuiltInParameterGroup.PG_MATERIALS,
@@ -148,26 +203,42 @@ with revit.Transaction(doc=new_family_doc, name="Copy Geometry"):
             copied_geo.Subcategory = subcat
     new_family_doc.Regenerate()
 
+    for curve in curves:
+        if isinstance(curve, DB.Line) and sk_plane(curve):
+            p1 = curve.Evaluate(0, True)
+            tangent = curve.ComputeDerivatives(0, True).BasisX
+            rotate = tangent.CrossProduct(p1)
+            plane = DB.Plane.CreateByNormalAndOrigin(rotate, p1)
+            line_sk_plane = DB.SketchPlane.Create(new_family_doc, plane)
+            new_curve = new_family_doc.FamilyCreate.NewModelCurve(curve, line_sk_plane)
+        elif sk_plane(curve):
+            new_curve = new_family_doc.FamilyCreate.NewModelCurve(curve, sk_plane(curve))
+    new_family_doc.Regenerate()
+
 # save and close family
 save_opt = DB.SaveOptions()
 new_family_doc.Save(save_opt)
 new_family_doc.Close()
 
+
 # non-structural type to place family instance
 str_type = DB.Structure.StructuralType.NonStructural
 
 # Reload family and place it in the same position as the original element
-with revit.Transaction("Reload Family", revit.doc):
-    try:
-        loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
-        revit.doc.Regenerate()
-    except Exception as err:
-        logger.error(err)
+with DB.Transaction(revit.doc, "Reload Family") as t:
+    t.Start()
+    # TODO: solve error here
+    loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
+    revit.doc.Regenerate()
+    if not loaded_f:
+        t.RollBack()
+        forms.alert("Error loading family", exitscript=True)
     # find family symbol and activate
     fam_symbol = None
     get_fam = DB.FilteredElementCollector(revit.doc).OfClass(DB.FamilySymbol).WhereElementIsElementType().ToElements()
 
     for fam in get_fam:
+
         type_name = fam.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
         if str.strip(type_name) == fam_name:
             fam_symbol = fam
@@ -176,9 +247,7 @@ with revit.Transaction("Reload Family", revit.doc):
             if not fam_symbol.IsActive:
                 fam_symbol.Activate()
                 revit.doc.Regenerate()
-
-            # place family symbol at position
-            new_fam_instance = revit.doc.Create.NewFamilyInstance(family_origin, fam_symbol, str_type)
-
-print ("Created and placed family instance : {1} {0} ".format(output.linkify(new_fam_instance.Id), fam_name))
-
+    # place family symbol at position
+    new_fam_instance = revit.doc.Create.NewFamilyInstance(family_origin, fam_symbol, str_type)
+    t.Commit()
+print("Created and placed family instance : {1} {0} ".format(output.linkify(new_fam_instance.Id), fam_name))
