@@ -1,0 +1,10 @@
+title: "Purge Delete Backups" 
+tooltip: >-
+  Deletes Revit project files and family backups.
+  The files usually ending with 00??.rvt will be removed from the selected folder. 
+
+
+  Will recursively go through folders and sub-folders to delete any backup files.
+
+  
+  Author: Deyan Nenov

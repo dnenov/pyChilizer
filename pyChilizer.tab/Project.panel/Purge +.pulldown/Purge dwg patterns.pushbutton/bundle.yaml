@@ -1,0 +1,7 @@
+title: "Purge DWG Line Patterns" # works with quotation marks
+tooltip: >-
+  Purge DWG line patterns which carry over when linking/importing DWG files. 
+  This tool will target all line patterns with names starting with 'IMPORT'. 
+
+  
+  Author: Deyan Nenov
