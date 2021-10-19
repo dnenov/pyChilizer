@@ -1,8 +1,17 @@
 """List Line Styles"""
 
 from pyrevit import revit, DB, forms
-from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
+from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 from collections import OrderedDict
+from Autodesk.Revit import Exceptions
+
+
+def convert_length_to_internal(from_units):
+    # convert length units from project  to internal
+    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
+    return converted
+
 
 # pick text style
 txt_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.TextNoteType)
@@ -10,12 +19,15 @@ text_style_dict= {txt_t.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsS
 # construct rwp UI
 components = [
     Label("Pick Text Style:"),
-    ComboBox(name="textstyle_combobox1", options=text_style_dict),
+    ComboBox(name="textstyle_combobox", options=text_style_dict),
+    Label("Vertical Offset:"),
+    TextBox(name="offset", Text="500"),
     Button("Select")]
 form = FlexForm("Appearance", components)
 form.show()
 # assign chosen values
-chosen_text_style = form.values["textstyle_combobox1"]
+chosen_text_style = form.values["textstyle_combobox"]
+vert_offset = float(form.values["offset"])
 
 
 cat = revit.doc.Settings.Categories.get_Item(DB.BuiltInCategory.OST_Lines)
@@ -33,14 +45,19 @@ view = revit.active_view
 # TODO: filter only relevant views
 
 # dims and scale
-scale = float(view.Scale)/ 200
-w = 8 * scale
+scale = float(view.Scale)/ 100
+w = 20 * scale
 text_offset = 1 * scale
-shift = 5 * scale
+shift = convert_length_to_internal(vert_offset) * scale
 
+with forms.WarningBar(title="Pick Point"):
+    try:
+        pick_point = revit.uidoc.Selection.PickPoint()
+    except Exceptions.OperationCanceledException:
+        forms.alert("Cancelled", ok=True, exitscript=True)
 
-p1 = DB.XYZ(0, 0, 0)
-p2 = DB.XYZ(w, 0, 0)
+p1 = pick_point
+p2 = DB.XYZ(pick_point.X+w, pick_point.Y, 0)
 
 # create lines between points
 l1 = DB.Line.CreateBound(p1, p2)
