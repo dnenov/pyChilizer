@@ -1,0 +1,8 @@
+layout:
+  - Worksets[beforeall:]
+  - Annotate
+  - Families
+  - Project
+  - Sandbox
+  - Select
+  - Workshop
