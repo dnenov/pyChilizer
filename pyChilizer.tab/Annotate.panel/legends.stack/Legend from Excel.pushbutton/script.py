@@ -90,7 +90,7 @@ view = revit.active_view
 
 # pick excel file and read
 with forms.WarningBar(title="Pick excel file with colour scheme"):
-    path = forms.pick_file(file_ext='xlsx', init_dir="M:\BIM\BIM Manual\Colour Scheme Table")
+    path = forms.pick_file(file_ext='xlsx')
 if path:
     book = xlrd.open_workbook(path)
 
@@ -135,14 +135,21 @@ if path:
     w = convert_length_to_internal(box_width) * scale
     h = convert_length_to_internal(box_height) * scale
     text_offset = 1 * scale
-    shift = (convert_length_to_internal(box_offset) + w) * scale
+    shift = (convert_length_to_internal(box_offset + box_height)) * scale
+
+    with forms.WarningBar(title="Pick Point"):
+        try:
+            pt = revit.uidoc.Selection.PickPoint()
+        except Exceptions.OperationCanceledException:
+            forms.alert("Cancelled", ok=True, exitscript=True)
+
 
     # create rectrangle
     crv_loop = DB.CurveLoop()
-    p1 = DB.XYZ(0, 0, 0)
-    p2 = DB.XYZ(w, 0, 0)
-    p3 = DB.XYZ(w, h, 0)
-    p4 = DB.XYZ(0, h, 0)
+    p1 = DB.XYZ(pt.X, pt.Y, 0)
+    p2 = DB.XYZ(pt.X + w, pt.Y, 0)
+    p3 = DB.XYZ(pt.X + w, pt.Y + h, 0)
+    p4 = DB.XYZ(pt.X, pt.Y + h, 0)
 
     # create lines between points
     l1 = DB.Line.CreateBound(p1, p2)
@@ -179,7 +186,7 @@ if path:
                 view.SetElementOverrides(new_reg.Id, ogs)
 
             # place text next to filled regions
-            label_position = DB.XYZ(w + text_offset, -(offset - h), 0)
+            label_position = DB.XYZ(pt.X+w + text_offset, pt.Y-(offset - h), 0)
             label_txt = str(box_name)
             text_note = DB.TextNote.Create(revit.doc, view.Id, label_position, label_txt, chosen_text_style.Id)
 
