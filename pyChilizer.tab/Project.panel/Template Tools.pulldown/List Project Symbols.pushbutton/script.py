@@ -1,22 +1,20 @@
-"""List Project Symbols on a Legend View"""
+"""List Project Symbols on a Legend View
+
+Shitf-Click
+Pick Symbol Categories
+"""
 
 from pyrevit import revit, DB, UI, forms, script
 from pyrevit.framework import List
 from collections import OrderedDict
 from Autodesk.Revit import Exceptions
+import config
 
 
 def convert_length_to_internal(from_units):
     # convert length units from project  to internal
     d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
     converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
-    return converted
-
-
-def convert_length_from_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertFromInternalUnits(from_units,d_units)
     return converted
 
 
@@ -30,31 +28,7 @@ view = revit.active_view
 if view.ViewType != DB.ViewType.Legend:
     forms.alert("View is not a Legend View", exitscript=True)
 
-categories = [
-    DB.BuiltInCategory.OST_DoorTags,
-    DB.BuiltInCategory.OST_WindowTags,
-    DB.BuiltInCategory.OST_RoomTags,
-    DB.BuiltInCategory.OST_AreaTags,
-    DB.BuiltInCategory.OST_WallTags,
-    DB.BuiltInCategory.OST_CurtainWallPanelTags,
-    DB.BuiltInCategory.OST_SectionHeads,
-    DB.BuiltInCategory.OST_CalloutHeads,
-    DB.BuiltInCategory.OST_CeilingTags,
-    DB.BuiltInCategory.OST_FurnitureTags,
-    DB.BuiltInCategory.OST_PlumbingFixtureTags,
-    DB.BuiltInCategory.OST_ReferenceViewerSymbol,
-    DB.BuiltInCategory.OST_GridHeads,
-    DB.BuiltInCategory.OST_LevelHeads,
-    DB.BuiltInCategory.OST_SpotElevSymbols,
-    DB.BuiltInCategory.OST_ElevationMarks,
-    DB.BuiltInCategory.OST_StairsTags,
-    DB.BuiltInCategory.OST_StairsLandingTags,
-    DB.BuiltInCategory.OST_StairsRunTags,
-    DB.BuiltInCategory.OST_StairsSupportTags,
-    DB.BuiltInCategory.OST_BeamSystemTags,
-    DB.BuiltInCategory.OST_StructuralFramingTags,
-    DB.BuiltInCategory.OST_ViewportLabel
-]
+categories = config.get_categories()
 
 cat_list = List[DB.BuiltInCategory](categories)
 multicat_filter = DB.ElementMulticategoryFilter(cat_list)
@@ -74,15 +48,10 @@ for sym in collect_tags:
     ordered_symbols[cat][fam][typ] = sym
 
 
-# any_legend_component = DB.FilteredElementCollector(revit.doc, view.Id) \
-#     .OfCategory(DB.BuiltInCategory.OST_LegendComponents) \
-#     .FirstElement()
-
-# forms.alert_ifnot(any_legend_component, "No Legend Components in View", exitscript=True)
 scale = float(view.Scale)/ 100
 offset = 5 *scale
-line_length = 2
 text_offset = 5 * scale
+column_offset = 30
 
 with forms.WarningBar(title="Pick Point"):
     try:
@@ -91,8 +60,12 @@ with forms.WarningBar(title="Pick Point"):
         forms.alert("Cancelled", ok=True, exitscript=True)
 
 position = pt
+counter = 1
+
+
 with revit.Transaction("List Symbols"):
     for cat in sorted(ordered_symbols):
+        counter +=1
         cat_label_position = DB.XYZ(position.X-text_offset, position.Y, 0)
         cat_text_note = DB.TextNote.Create(revit.doc, view.Id, cat_label_position, cat, get_any_text_type_id())
         cat_txt = cat_text_note.GetFormattedText()
