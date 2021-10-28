@@ -1,9 +1,16 @@
 """List Filled Regions"""
 
 from pyrevit import revit, DB, UI, HOST_APP, forms
-from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
+from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 from collections import OrderedDict
 from pyrevit.framework import List
+
+
+def convert_length_to_internal(from_units):
+    # convert length units from project  to internal
+    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
+    return converted
 
 
 view = revit.active_view
@@ -21,27 +28,44 @@ text_style_dict= {txt_t.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsS
 components = [
     Label("Pick Text Style"),
     ComboBox(name="textstyle_combobox", options=text_style_dict),
+    Label("Box Width [mm]"),
+    TextBox(name="box_width", Text="800"),
+    Label("Box Height [mm]"),
+    TextBox(name="box_height", Text="300"),
+    Label("Offset [mm]"),
+    TextBox(name="box_offset", Text="100"),
     Button("Select")
 ]
 form = FlexForm("Select", components)
 form.show()
 # assign chosen values
 text_style = form.values["textstyle_combobox"]
+box_width = int(form.values["box_width"])
+box_height = int(form.values["box_height"])
+box_offset = int(form.values["box_offset"])
 
 # dims and scale
 scale = float(view.Scale)/ 100
-w = 3.25 * scale
-h = 1.3 * scale
+w = convert_length_to_internal(box_width) * scale
+h = convert_length_to_internal(box_height) * scale
 text_offset = 1 * scale
-shift = 2.32 * scale
+shift = (convert_length_to_internal(box_offset + box_height)) * scale
+
+
+with forms.WarningBar(title="Pick Point"):
+    try:
+        pt = revit.uidoc.Selection.PickPoint()
+    except Exceptions.OperationCanceledException:
+        forms.alert("Cancelled", ok=True, exitscript=True)
+
 
 # create rectrangle
 crv_loop = DB.CurveLoop()
 
-p1 = DB.XYZ(0, 0, 0)
-p2 = DB.XYZ(w, 0, 0)
-p3 = DB.XYZ(w, h, 0)
-p4 = DB.XYZ(0, h, 0)
+p1 = DB.XYZ(pt.X, pt.Y, 0)
+p2 = DB.XYZ(pt.X+w, pt.Y, 0)
+p3 = DB.XYZ(pt.X+w, pt.Y+h, 0)
+p4 = DB.XYZ(pt.X, pt.Y+h, 0)
 
 # create lines between points
 l1 = DB.Line.CreateBound(p1, p2)
@@ -51,6 +75,7 @@ l4 = DB.Line.CreateBound(p4, p1)
 
 rectangle = [l1, l2, l3, l4]
 
+print (convert_length_to_internal(shift))
 with revit.Transaction("Draw Filled Regions"):
     for fr in sorted_fillreg:
 
