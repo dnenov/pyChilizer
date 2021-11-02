@@ -1,7 +1,5 @@
 layout:
   - Purge +
-  - Cleanup Tools
-  - Template Tools
   - -----
   - edit1
-  - edit2
+

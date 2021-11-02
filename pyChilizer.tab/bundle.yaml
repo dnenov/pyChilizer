@@ -1,8 +1,10 @@
 layout:
-  - Worksets[beforeall:]
-  - Annotate
-  - Families
-  - Project
-  - Sandbox
+  - About[beforeall:]
+  - Worksets
   - Select
+  - Inspect
+  - Annotate
+  - Project
+  - Template
+  - Families
   - Workshop
