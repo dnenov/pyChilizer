@@ -75,7 +75,6 @@ l4 = DB.Line.CreateBound(p4, p1)
 
 rectangle = [l1, l2, l3, l4]
 
-print (convert_length_to_internal(shift))
 with revit.Transaction("Draw Filled Regions"):
     for fr in sorted_fillreg:
 
