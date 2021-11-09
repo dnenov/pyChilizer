@@ -1,7 +1,7 @@
 __title__ = "Purge unused scope boxes"
-
+__doc__ = "Removes scope boxes not used on any views or datum elements"
 from pyrevit import revit, DB, forms, script
-
+from pyrevit.framework import List
 
 def filter_sb_viewtypes(views):
     # returns only views of types compatible with scope box
@@ -29,12 +29,25 @@ forms.alert_ifnot(coll_scope, "No Scope Boxes in model.", exitscript=True)
 coll_views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View).WhereElementIsNotElementType()
 # filter views compatible with scope boxes
 compatible_views = filter_sb_viewtypes(coll_views)
-
+# also collect levels and grids
+cat_list = List[DB.BuiltInCategory]([DB.BuiltInCategory.OST_Levels, DB.BuiltInCategory.OST_Grids])
+multi_cat_filter = DB.ElementMulticategoryFilter(cat_list)
+coll_lvlgrids = DB.FilteredElementCollector(revit.doc).WherePasses(
+    multi_cat_filter).WhereElementIsNotElementType()
 # get a list of used scope boxes
 used_sb = []
 for view in compatible_views:
     try:
         sb_id = view.get_Parameter(DB.BuiltInParameter.VIEWER_VOLUME_OF_INTEREST_CROP).AsElementId()
+        if sb_id != DB.ElementId.InvalidElementId and sb_id not in used_sb:
+            used_sb.append(sb_id)
+    except:
+        pass
+
+for datum in coll_lvlgrids:
+    try:
+
+        sb_id = datum.get_Parameter(DB.BuiltInParameter.DATUM_VOLUME_OF_INTEREST).AsElementId()
         if sb_id != DB.ElementId.InvalidElementId and sb_id not in used_sb:
             used_sb.append(sb_id)
     except:
