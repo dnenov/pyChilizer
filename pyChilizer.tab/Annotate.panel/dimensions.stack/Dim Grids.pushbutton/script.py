@@ -35,10 +35,17 @@ if doc.GetElement(active_view.GetTypeId()).FamilyName == 'Floor Plan':
 else:
     is_plan = False
 
+with forms.WarningBar(title="Pick levels"):
+    try:
+        levels = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter("Levels"),
+                                           "Select Levels")
+    except:
+        forms.alert("Failed", ok=True, exitscript=True)
+
 
 with forms.WarningBar(title="Pick one row of grid lines"):
     try:
-        grids = [revit.doc.GetElement(ref) for ref in rpw.revit.uidoc.Selection.PickObjects(ObjectType.Element, GridsFilter())]
+        grids = [revit.doc.GetElement(ref) for ref in rpw.revit.uidoc.Selection.PickElementsByRectangle(ObjectType.Element, GridsFilter())]
     except Exceptions.OperationCanceledException:
         forms.alert("Cancelled", ok=True, exitscript=True)
 
