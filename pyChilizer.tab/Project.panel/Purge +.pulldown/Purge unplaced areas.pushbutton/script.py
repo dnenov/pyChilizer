@@ -1,4 +1,4 @@
-__title__ = "Remove \nUnplaced Areas"
+__title__ = "Remove\nunplaced areas"
 __doc__ = "Delete unplaced areas from project"
 
 from pyrevit import revit, DB, forms

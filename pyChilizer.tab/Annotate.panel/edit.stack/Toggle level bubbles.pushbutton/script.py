@@ -1,6 +1,7 @@
 """Toggle level bubbles in View."""
 
 __title__ = 'Toggle\nLevels'
+__doc__ = 'Press "Esc" to finalize the process'
 
 #import libraries and reference the RevitAPI and RevitAPIUI
 
@@ -8,6 +9,7 @@ from Autodesk.Revit.DB import *
 from Autodesk.Revit.DB.Architecture import *
 from Autodesk.Revit.DB.Analysis import *
 from Autodesk.Revit.UI import *
+from Autodesk.Revit.UI.Selection import *
 
 from pyrevit import revit, DB, UI
 from pyrevit import forms
@@ -20,9 +22,25 @@ active_view = doc.ActiveView
 
 sel = revit.get_selection()
 
+# Selection Filter
+class CustomISelectionFilter(ISelectionFilter):
+    def __init__(self, name_cat):
+        self.name_cat = name_cat
+
+    def AllowElement(self, e):
+        if e.Category.Name == self.name_cat:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def AllowReference(ref, point):
+        return True
+
+# Toggle between the possible level bubbles states        
 try:
     while True:
-        level = doc.GetElement(revit.uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, 'Pick a Level'))
+        level = doc.GetElement(revit.uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, CustomISelectionFilter("Levels"), 'Pick a Level'))
 
         end_0 = level.IsBubbleVisibleInView(DB.DatumEnds.End0, active_view)
         end_1 = level.IsBubbleVisibleInView(DB.DatumEnds.End1, active_view)

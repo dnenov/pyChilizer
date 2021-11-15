@@ -1,8 +1,8 @@
 """Create 3D View for each Workset in the project."""
 
 __title__ = 'Worksets\nChecker'
-
-# import libraries and reference the RevitAPI and RevitAPIUI
+__doc__ = 'Creates 3D views with names of the form "WORKSET VIEW - Workset1".' \
+    'Will delete previously created views upon re-run.'
 
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.DB.Architecture import *
@@ -12,25 +12,7 @@ from Autodesk.Revit.UI import *
 from pyrevit import revit, DB
 from pyrevit import forms
 
-import msvcrt
-
-# THIS IS NOT NECESSARY, BUT COULD BE HANDY
-import clr
-
-# clr.AddReferenceByName("PresentationFramework, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")
-# clr.AddReferenceByName("PresentationCore, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")
-# clr.AddReferenceByPartialName('PresentationCore')
-# clr.AddReferenceByPartialName("PresentationFramework")
-# clr.AddReferenceByPartialName('System.Windows.Forms')
-#
-# from Autodesk.Revit.UI.Selection import *
-# from Autodesk.Revit.DB import XYZ
-
 from pyrevit import revit, DB, forms
-
-# import System.Windows
-# import Autodesk.Revit.DB
-
 
 # set the active Revit application and document
 app = __revit__.Application

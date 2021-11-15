@@ -1,5 +1,6 @@
 __title__ = "Select by\nDesign Option"
-__doc__ = "Select elements of a design option"
+__doc__ = "Select elements of a design option." \
+    "For best use, filter the results to go through all selected elements."
 
 
 from pyrevit import revit, DB, UI, forms

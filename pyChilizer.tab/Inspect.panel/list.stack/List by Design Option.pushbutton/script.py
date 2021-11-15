@@ -1,5 +1,5 @@
 __title__ = "List by Design Option"
-__doc__ = "List numbers of elements of project's Design Options, broken down by category"
+__doc__ = "List numbers of elements of project's Design Options, broken down by category."
 
 from pyrevit import revit, DB, UI, forms
 from collections import defaultdict

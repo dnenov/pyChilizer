@@ -1,4 +1,4 @@
-__title__= "Remove \nunenclosed areas"
+__title__= "Remove\nunenclosed areas"
 __doc__ = "Delete unenclosed areas from project"
 
 from pyrevit import revit, DB, forms

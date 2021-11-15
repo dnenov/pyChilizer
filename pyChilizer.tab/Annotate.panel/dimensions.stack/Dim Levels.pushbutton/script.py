@@ -2,7 +2,6 @@
 
 __title__ = 'Dimension\nLevels'
 
-# import libraries and reference the RevitAPI and RevitAPIUI
 
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.DB.Architecture import *
@@ -12,26 +11,12 @@ from Autodesk.Revit.UI import *
 from pyrevit import revit, DB
 from pyrevit import forms
 
-import msvcrt
-
-# THIS IS NOT NECESSARY, BUT COULD BE HANDY
-import clr
-
-# clr.AddReferenceByName("PresentationFramework, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")
-# clr.AddReferenceByName("PresentationCore, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")
-clr.AddReferenceByPartialName('PresentationCore')
-clr.AddReferenceByPartialName("PresentationFramework")
-clr.AddReferenceByPartialName('System.Windows.Forms')
-
 from Autodesk.Revit.UI.Selection import *
 from Autodesk.Revit.DB import XYZ
 
 from pyrevit import revit, DB
 
-import System.Windows
-import Autodesk.Revit.DB
-
-
+# Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
     def __init__(self, name_cat):
         self.name_cat = name_cat
@@ -53,7 +38,6 @@ doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 active_view = doc.ActiveView
 
-
 with forms.WarningBar(title="Pick levels"):
     try:
         levels = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter("Levels"),
@@ -61,15 +45,19 @@ with forms.WarningBar(title="Pick levels"):
     except:
         forms.alert("Failed", ok=True, exitscript=True)
 
-
 ref_array = DB.ReferenceArray()
 s = ""
 
+# Terminate early if no levels were selected
+if not levels:
+    forms.alert("No grids selected.", ok=True, exitscript=True)
+
+# Get all geometry reference lines
 for lvl in levels:
     if lvl:
         ref_array.Append(lvl.GetPlaneReference())
 
-
+# Create a sketch plane to draw the dimensions in
 with revit.Transaction("Dim Grids Sketch Plane", doc=doc):
     origin = active_view.Origin
     direction = active_view.ViewDirection
@@ -80,10 +68,10 @@ with revit.Transaction("Dim Grids Sketch Plane", doc=doc):
     active_view.SketchPlane = sp
     doc.Regenerate
 
-
+# Get the placement point and dim line
 pick_point = uidoc.Selection.PickPoint()
 line = DB.Line.CreateBound(pick_point, pick_point + DB.XYZ.BasisZ * 100)
 
-
+# Finally, create the dimension
 with revit.Transaction("Dim Grids", doc=doc):
     doc.Create.NewDimension(active_view, line, ref_array)

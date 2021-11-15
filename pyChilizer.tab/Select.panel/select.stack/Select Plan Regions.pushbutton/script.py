@@ -1,5 +1,5 @@
 __title__ = "Select\nPlan Region"
-__doc__ = "Select all plan region elements in current view"
+__doc__ = "Select all plan region elements in current view."
 
 from pyrevit import revit, DB
 

@@ -1,5 +1,5 @@
 __title__ = "Count Annotation"
-__doc__ = "Shows breakdown of annotation elements by category"
+__doc__ = "Shows breakdown of annotation elements by category."
 
 from pyrevit import revit, DB, script, forms
 from pyrevit.framework import List

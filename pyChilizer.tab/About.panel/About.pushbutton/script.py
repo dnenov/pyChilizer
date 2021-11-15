@@ -35,6 +35,8 @@ __doc__ = 'Manage worksets and pinning of critical elements and links.'\
 from pyrevit import UI
 from pyrevit import script
 
+
+logger = script.get_logger()
 xamlfile = script.get_bundle_file('AboutWindow.xaml')
 
 # import WPF creator and base Window
