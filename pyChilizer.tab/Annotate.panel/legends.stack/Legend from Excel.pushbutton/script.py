@@ -1,5 +1,5 @@
 """Create a colour legend from an excel table. The table must consist of two columns, [A] Name [B] Colour in R-G-B format (ex. 255-180-80).
- Find a template in the folder.
+ Find a template in the folder. To open the script folder, ALT+CLICK the button.
  You can chose if you want to use/create the Filled Region types matching the name or use visibility overrides."""
 from pyrevit.framework import List
 from pyrevit import revit, DB, forms, script
@@ -7,6 +7,7 @@ import xlrd
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 from collections import OrderedDict
 
+config = script.get_config()
 
 def convert_length_to_internal(from_units):
     # convert length units from project  to internal
@@ -192,3 +193,4 @@ if path:
 
             # keep offsetting y
             offset += shift
+
