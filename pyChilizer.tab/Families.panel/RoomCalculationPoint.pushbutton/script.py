@@ -56,6 +56,8 @@ if len(selection) == 0:
 counter = 0
 max_value = len(selection)
 
+forms.alert_ifnot(max_value == 0, "No families were selected.", exitscript=True)
+
 with ProgressBar(cancellable=True, step=1) as pb:
     for sel in selection:
         fam_ins = sel
