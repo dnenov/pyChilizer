@@ -70,6 +70,7 @@ views_with_filters = [view for view in col_views if view.ViewType in allowed_vie
 
 # prep options
 view_dict1 = {v.Name: v for v in views_with_filters}
+forms.alert_ifnot(view_dict1, "No views with filters", exitscript=True)
 
 # get all text styles to choose from
 txt_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.TextNoteType)
@@ -104,7 +105,7 @@ box_offset = int(form.values["box_offset"])
 view = revit.active_view
 view_filters = src_view.GetFilters()
 
-legend_od = OrderedDict()
+legend_od = {}
 
 for f in view_filters:
     overrides = src_view.GetFilterOverrides(f)
@@ -116,7 +117,6 @@ for f in view_filters:
     elif colour_source == "Cut" and overrides.CutForegroundPatternColor.IsValid:
         filter_colour = overrides.CutForegroundPatternColor
         filter_name = revit.doc.GetElement(f).Name
-        legend_od[filter_name] = filter_colour
         legend_od[filter_name] = filter_colour
 
 # dims and scale
@@ -149,7 +149,7 @@ offset = 0
 
 
 with revit.Transaction("Draw Legend"):
-    for v_filter in legend_od:
+    for v_filter in sorted(legend_od):
 
         # draw rectangles with filled region
         new_reg = draw_rectangle(offset, any_fill_type(), view, invis_style())

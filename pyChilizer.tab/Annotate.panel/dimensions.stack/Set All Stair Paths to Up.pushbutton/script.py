@@ -24,9 +24,14 @@ up_path_id = DB.FilteredElementCollector(revit.doc) \
         )).WhereElementIsElementType() \
    .ToElementIds()
 
+stairs = DB.FilteredElementCollector(revit.doc) \
+    .OfCategory(DB.BuiltInCategory.OST_Stairs) \
+    .WhereElementIsNotElementType()
+
+
 with revit.Transaction("Set all Stair Paths to Up"):
     for a in auto_paths:
         a.ChangeTypeId(up_path_id[0])
-
-
-
+    for stair in stairs:
+        if stair.get_Parameter(DB.BuiltInParameter.STAIRS_INST_ALWAYS_UP):
+            stair.get_Parameter(DB.BuiltInParameter.STAIRS_INST_ALWAYS_UP).Set(1)
