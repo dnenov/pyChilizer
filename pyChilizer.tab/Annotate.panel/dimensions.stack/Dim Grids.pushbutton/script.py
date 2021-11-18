@@ -16,11 +16,11 @@ active_view = doc.ActiveView
 
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
-    def __init__(self, name_cat):
-        self.name_cat = name_cat
+    def __init__(self, cat):
+        self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Name == self.name_cat:
+        if e.Category.Id.IntegerValue == int(self.cat):
             return True
         else:
             return False
@@ -28,7 +28,7 @@ class CustomISelectionFilter(ISelectionFilter):
     @staticmethod
     def AllowReference(ref, point):
         return True
-
+        
 
 active_view = revit.active_view # the current active view
 is_plan = True  # Separate condition if the view is a Plan View or Elevetaion/Section
@@ -41,7 +41,7 @@ else:
 
 with forms.WarningBar(title="Pick one row of grid lines"):
     try:
-        grids = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter("Grids"), 
+        grids = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter(DB.BuiltInCategory.OST_Grids), 
         "Select Grids")
     except Exceptions.OperationCanceledException:
         forms.alert("Cancelled", ok=True, exitscript=True)

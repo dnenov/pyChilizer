@@ -12,7 +12,7 @@ from pyrevit.revit.db import query
 class RoomsFilter(ISelectionFilter):
     def AllowElement(self, elem):
         try:
-            if elem.Category.Name == "Rooms":
+            if elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_Rooms):
                 return True
             else:
                 return False

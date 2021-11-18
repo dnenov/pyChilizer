@@ -18,11 +18,11 @@ from pyrevit import revit, DB
 
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
-    def __init__(self, name_cat):
-        self.name_cat = name_cat
+    def __init__(self, cat):
+        self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Name == self.name_cat:
+        if e.Category.Id.IntegerValue == int(self.cat):
             return True
         else:
             return False
@@ -40,7 +40,7 @@ active_view = doc.ActiveView
 
 with forms.WarningBar(title="Pick levels"):
     try:
-        levels = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter("Levels"),
+        levels = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter(DB.BuiltInCategory.OST_Levels),
                                            "Select Levels")
     except:
         forms.alert("Failed", ok=True, exitscript=True)

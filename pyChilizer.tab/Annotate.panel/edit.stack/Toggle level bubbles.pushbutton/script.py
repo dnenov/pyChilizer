@@ -24,11 +24,11 @@ sel = revit.get_selection()
 
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
-    def __init__(self, name_cat):
-        self.name_cat = name_cat
+    def __init__(self, cat):
+        self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Name == self.name_cat:
+        if e.Category.Id.IntegerValue == int(self.cat):
             return True
         else:
             return False
@@ -40,7 +40,8 @@ class CustomISelectionFilter(ISelectionFilter):
 # Toggle between the possible level bubbles states        
 try:
     while True:
-        level = doc.GetElement(revit.uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, CustomISelectionFilter("Levels"), 'Pick a Level'))
+        level = doc.GetElement(revit.uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, CustomISelectionFilter(DB.BuiltInCategory.OST_Levels), 
+        'Pick a Level'))
 
         end_0 = level.IsBubbleVisibleInView(DB.DatumEnds.End0, active_view)
         end_1 = level.IsBubbleVisibleInView(DB.DatumEnds.End1, active_view)
