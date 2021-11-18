@@ -325,3 +325,67 @@ def get_bb_axis_in_view(element, view):
     center = 0.5 * (bbox.Max + bbox.Min)
     axis = DB.Line.CreateBound(center, center + DB.XYZ.BasisZ)
     return axis
+
+
+def apply_vt(v, vt):
+    if vt:
+        v.ViewTemplateId = vt.Id
+    return
+
+
+def is_metric(doc):
+    display_units = DB.Document.GetUnits(doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    metric_units = [
+        DB.DisplayUnitType.DUT_METERS,
+        DB.DisplayUnitType.DUT_CENTIMETERS,
+        DB.DisplayUnitType.DUT_DECIMETERS,
+        DB.DisplayUnitType.DUT_MILLIMETERS,
+        DB.DisplayUnitType.DUT_METERS_CENTIMETERS
+    ]
+    if display_units in set(metric_units):
+        return True
+    else:
+        return False
+
+
+def correct_input_units(val):
+    import re
+    try:
+        digits = float(val)
+    except ValueError:
+        # format the string using regex
+        digits = re.findall("[0-9.]+", val)[0]
+    if is_metric(revit.doc):
+        return DB.UnitUtils.ConvertToInternalUnits(float(digits), DB.DisplayUnitType.DUT_MILLIMETERS)
+    else:
+        return DB.UnitUtils.ConvertToInternalUnits(float(digits), DB.DisplayUnitType.DUT_DECIMAL_INCHES)
+
+
+def get_aligned_crop(geo, transform):
+
+    rotated_geo = geo.GetTransformed(transform)
+    revit.doc.Regenerate()
+    rb = rotated_geo.GetBoundingBox()
+    bb_outline = get_bb_outline(rb)
+    # rotate the curves back using the opposite direction
+    tr_back = transform.Inverse
+    rotate_curves_back = [c.CreateTransformed(tr_back) for c in bb_outline]
+    crop_loop = DB.CurveLoop.Create(List[DB.Curve](rotate_curves_back))
+
+    return crop_loop
+
+
+def get_bb_outline(bb):
+
+    r1 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
+    r2 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
+    r3 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
+    r4 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z)
+
+    l1 = DB.Line.CreateBound(r1, r2)
+    l2 = DB.Line.CreateBound(r2, r3)
+    l3 = DB.Line.CreateBound(r3, r4)
+    l4 = DB.Line.CreateBound(r4, r1)
+
+    curves_set = [l1, l2, l3, l4]
+    return curves_set
