@@ -1,4 +1,3 @@
-
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
@@ -7,6 +6,7 @@ import tempfile
 import rpw
 from pyrevit.revit.db import query
 import math
+from pyrevit.framework import List
 
 
 # selection filter for rooms
@@ -61,7 +61,7 @@ def param_set_by_cat(cat):
     return parameter_set
 
 
-def preselection_with_filter (cat_name):
+def preselection_with_filter(cat_name):
     # use pre-selection of elements, but filter them by given category name
     pre_selection = []
     for id in rpw.revit.uidoc.Selection.GetElementIds():
@@ -83,7 +83,7 @@ def inverted_transform(element, view):
     return translated_cs.Inverse
 
 
-def room_bound_to_origin (room, translation):
+def room_bound_to_origin(room, translation):
     room_boundaries = DB.CurveArrArray()
     # get room boundary segments
     room_segments = room.GetBoundarySegments(DB.SpatialElementBoundaryOptions())
@@ -98,11 +98,10 @@ def room_bound_to_origin (room, translation):
     return room_boundaries
 
 
-def get_ref_lvl_plane (family_doc):
+def get_ref_lvl_plane(family_doc):
     # from given family doc, return Ref. Level reference plane
     find_planes = DB.FilteredElementCollector(family_doc).OfClass(DB.SketchPlane)
     return [plane for plane in find_planes if plane.Name == "Ref. Level"]
-
 
 
 def get_fam(some_name):
@@ -116,7 +115,7 @@ def get_fam(some_name):
 
 
 def get_sheet(some_number):
-    sheet_nr_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER : str(some_number)})
+    sheet_nr_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER: str(some_number)})
     found_sheet = DB.FilteredElementCollector(revit.doc) \
         .OfCategory(DB.BuiltInCategory.OST_Sheets) \
         .WherePasses(sheet_nr_filter) \
@@ -147,8 +146,9 @@ def get_family_slow_way(name):
             if el_f_name.strip(" ") == name:
                 return el
 
+
 # 0001
-def create_sheet (sheet_num, sheet_name, titleblock):
+def create_sheet(sheet_num, sheet_name, titleblock):
     sheet_num = str(sheet_num)
 
     # #cur_sheet_num = sheet.SheetNumber
@@ -163,7 +163,6 @@ def create_sheet (sheet_num, sheet_name, titleblock):
     while get_sheet(sheet_num):
         sheet_num = coreutils.increment_str(sheet_num, 1)
     new_datasheet.SheetNumber = str(sheet_num)
-
 
     return new_datasheet
 
@@ -186,6 +185,7 @@ def find_crop_box(view):
             else:
                 print("CROP NOT FOUND")
                 return None
+
 
 def degree_conv(x):
     return (x * 180) / math.pi
@@ -239,6 +239,7 @@ def get_room_bound(r):
 
 
 def get_longest_boundary(r):
+    # get the rooms's longest boundary that is not an arc
     bound = r.GetBoundarySegments(DB.SpatialElementBoundaryOptions())
     longest = None
     for loop in bound:
@@ -247,3 +248,80 @@ def get_longest_boundary(r):
             if curve.Length > longest and isinstance(curve, DB.Line):
                 longest = curve
     return longest
+
+
+def set_crop_to_bb(element, view, crop_offset):
+    # set the crop box of the view to elements's bounding box in that view
+    # draw 2 sets of outlines for each orientation (front/back, left/right)
+    bb = element.get_BoundingBox(view)
+
+    pt1 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
+    pt2 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Max.Z)
+    pt3 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Max.Z)
+    pt4 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
+
+    pt7 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z)
+    pt8 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Max.Z)
+    pt5 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Max.Z)
+    pt6 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
+
+    l1 = DB.Line.CreateBound(pt1, pt2)
+    l2 = DB.Line.CreateBound(pt2, pt3)
+    l3 = DB.Line.CreateBound(pt3, pt4)
+    l4 = DB.Line.CreateBound(pt4, pt1)
+
+    l5 = DB.Line.CreateBound(pt6, pt5)
+    l6 = DB.Line.CreateBound(pt5, pt8)
+    l7 = DB.Line.CreateBound(pt8, pt7)
+    l8 = DB.Line.CreateBound(pt7, pt6)
+
+    curves_set1 = [l1, l2, l3, l4]
+    curves_set2 = [l5, l6, l7, l8]
+
+    crsm = view.GetCropRegionShapeManager()
+    view_direction = view.ViewDirection
+
+    try:
+        # try with set 1, if doesn't work try with set 2
+        crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set1))
+        # offset the crop with the specified offset
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+        # in case the offset works inwards, correct it to offset outwards
+        if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+        crsm.SetCropShape(curve_loop_offset)
+    except:
+        crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set2))
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+        if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+        crsm.SetCropShape(curve_loop_offset)
+    return
+
+
+def room_rotation_angle(room):
+    # get the angle of the room's longest boundary to Y axis
+    # choose one longest curve to use as reference for rotation
+    longest_boundary = get_longest_boundary(room)
+    p = longest_boundary.GetEndPoint(0)
+    q = longest_boundary.GetEndPoint(1)
+    v = q - p
+    # get angle and correct value
+    bbox_angle = v.AngleTo(DB.XYZ.BasisY)
+    # correct angles
+    if degree_conv(bbox_angle) > 90:
+        bbox_angle = bbox_angle - math.radians(90)
+    elif degree_conv(bbox_angle) < 45:
+        bbox_angle = -bbox_angle
+    else:
+        bbox_angle = bbox_angle
+    return bbox_angle
+
+
+def get_bb_axis_in_view(element, view):
+    # return the central axis of element's bounding box in view
+    # get viewplan bbox, center
+    bbox = element.get_BoundingBox(view)
+    center = 0.5 * (bbox.Max + bbox.Min)
+    axis = DB.Line.CreateBound(center, center + DB.XYZ.BasisZ)
+    return axis

@@ -45,7 +45,7 @@ if selection:
             dept = "Generic Model"
         room_name = room.get_Parameter(DB.BuiltInParameter.ROOM_NAME).AsString()
         room_number = room.get_Parameter(DB.BuiltInParameter.ROOM_NUMBER).AsString()
-        room_height = room.get_Parameter(DB.BuiltInParameter.ROOM_HEIGHT).AsValueString()
+        room_height = room.get_Parameter(DB.BuiltInParameter.ROOM_HEIGHT).AsDouble()
         # construct family and family type names:
         fam_name = str(dept) + "_" + room_name + "_" + room_number
         # replace bad characters
@@ -78,13 +78,12 @@ if selection:
         # Create extrusion from room boundaries
         with revit.Transaction(doc=new_family_doc, name="Create Extrusion"):
 
-            extr_height = helper.convert_length_to_internal(float(room_height))
             ref_plane = helper.get_ref_lvl_plane(new_family_doc)
             extrusion = None
             # create extrusion, assign material, associate with shared parameter
             try:
                 extrusion = new_family_doc.FamilyCreate.NewExtrusion(True, room_boundaries, ref_plane[0],
-                                                                     extr_height)
+                                                                     room_height)
                 ext_mat_param = extrusion.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
                 # create and associate a material parameter
                 new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
