@@ -1,0 +1,8 @@
+title: "Room Data Sheets"
+tooltip: >+
+  Creates room plans and elevations and places them on a sheet. Assign sheet number and view templates. The 
+  view plans will be rotates along the room's longest boundary. If room boundary allows, it will be offset
+  to include the walls. 
+
+
+  Author: Daria Ivanciucova

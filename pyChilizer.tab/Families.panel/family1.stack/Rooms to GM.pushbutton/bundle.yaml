@@ -1,0 +1,7 @@
+title: "Room to Generic Model"
+tooltip: >+
+  Transforms rooms into Generic Model families and places them in same place. The shape of the family is 
+  based on the room boundaries and room height. 
+
+
+  Author: Daria Ivanciucova

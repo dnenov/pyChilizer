@@ -1,0 +1,6 @@
+title: "Worksets\nChecker"
+tooltip: |
+  Creates 3D views with names of the form "WORKSET VIEW - Workset1".
+  Will delete previously created views upon re-run.
+
+  Author: Deyan Nenov

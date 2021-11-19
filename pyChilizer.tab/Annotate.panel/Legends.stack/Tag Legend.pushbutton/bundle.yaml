@@ -1,0 +1,6 @@
+title: "Tag Legend"
+tooltip: |
+  Pick from a list of parameters to annotate legend components in a legend. 
+  As tags are not available for legend views, parameter values will be shown as Text Notes
+
+  Author: Daria Ivanciucova

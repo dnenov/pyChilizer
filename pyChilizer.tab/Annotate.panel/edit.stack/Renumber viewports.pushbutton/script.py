@@ -16,8 +16,6 @@ import msvcrt
 
 #THIS IS NOT NECESSARY, BUT COULD BE HANDY
 import clr
-# clr.AddReferenceByName("PresentationFramework, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")
-# clr.AddReferenceByName("PresentationCore, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")
 clr.AddReferenceByPartialName('PresentationCore')
 clr.AddReferenceByPartialName("PresentationFramework")
 clr.AddReferenceByPartialName('System.Windows.Forms')
@@ -66,4 +64,3 @@ except:
     TaskDialog.Show('Test', 'Done')
     pass
 
-# TaskDialog.Show('Test', str(len(vports)))

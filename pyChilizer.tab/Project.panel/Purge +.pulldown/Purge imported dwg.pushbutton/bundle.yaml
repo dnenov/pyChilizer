@@ -1,0 +1,5 @@
+title: "Purge imported dwg" # works with quotation marks
+tooltip: |
+  Delete all the imported dwg from the Project. All of them.
+  
+  Author: Deyan Nenov

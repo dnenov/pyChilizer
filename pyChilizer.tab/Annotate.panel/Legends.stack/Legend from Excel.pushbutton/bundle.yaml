@@ -1,0 +1,7 @@
+title: "Legends from Excel"
+tooltip: |
+  Create a colour legend from an excel table. The table must consist of two columns, [A] Name [B] Colour in R-G-B format (ex. 255-180-80).
+  Find a template in the folder. To open the script folder, ALT+CLICK the button.
+  You can chose if you want to use/create the Filled Region types matching the name or use visibility overrides.
+
+  Author: Daria Ivanciucova

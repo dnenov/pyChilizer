@@ -1,0 +1,7 @@
+title: "Room2Mass"
+tooltip: >+
+  Transforms rooms into Generic Model families. Carries over unit parameters. 
+  Copies tenure from name.
+
+
+  Author: Daria Ivanciucova

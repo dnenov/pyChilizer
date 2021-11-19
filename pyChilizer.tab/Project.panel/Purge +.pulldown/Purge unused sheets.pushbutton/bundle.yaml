@@ -1,0 +1,5 @@
+title: "Purge unused sheets"
+tooltip: |
+  Delete all the Sheets without Viewports on them.
+
+  Author: Deyan Nenov

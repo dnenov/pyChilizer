@@ -1,0 +1,6 @@
+title: "Legends from Filters"
+tooltip: |
+  Draw a Legend based on View Filters of a chosen view.
+  View Filters with no overrides will be discarded.
+
+  Author: Daria Ivanciucova

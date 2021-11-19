@@ -1,0 +1,5 @@
+title: "Purge unused scope boxes"
+tooltip: |
+  Removes scope boxes not used on any views or datum elements.
+
+  Author: Daria Ivanciucova
