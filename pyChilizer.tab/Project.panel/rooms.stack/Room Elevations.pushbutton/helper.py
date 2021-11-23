@@ -13,7 +13,7 @@ from pyrevit.framework import List
 class RoomsFilter(ISelectionFilter):
     def AllowElement(self, elem):
         try:
-            if elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_Rooms):
+            if elem.Category.Name == "Rooms":
                 return True
             else:
                 return False
