@@ -1,7 +1,7 @@
 __title__ = "Room Calculation\nPoint"
 __doc__ = "Add Room Calculation Point to multiple Families \nv1.0"
 
-from pyrevit import revit, DB, HOST_APP, UI
+from pyrevit import revit, DB, HOST_APP, UI, forms
 from pyrevit.framework import List
 from pyrevit.forms import ProgressBar
 
@@ -56,7 +56,7 @@ if len(selection) == 0:
 counter = 0
 max_value = len(selection)
 
-form.alert_ifnot(max_value == 0, "No families were selected.", exitscript=True)
+forms.alert_ifnot(max_value == 0, "No families were selected.", exitscript=True)
 
 with ProgressBar(cancellable=True, step=1) as pb:
     for sel in selection:
