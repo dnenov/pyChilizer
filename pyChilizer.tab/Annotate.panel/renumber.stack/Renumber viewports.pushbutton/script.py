@@ -3,7 +3,6 @@
 __title__ = 'Renumber\nViewports'
 
 #import libraries and reference the RevitAPI and RevitAPIUI
-
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.DB.Architecture import *
 from Autodesk.Revit.DB.Analysis import *
@@ -30,11 +29,12 @@ active_view = doc.ActiveView
 
 vsheet = active_view;
 
-#if isinstance(vsheet, None):
-if vsheet is None:
+# Check if we are on a Sheet
+if vsheet.ViewType != DB.ViewType.DrawingSheet:
     forms.alert("You're not on a Sheet. You need to be on a Sheet to use this command.",
                 exitscript=True)
 
+# Get all viewports 
 vport_element_ids = vsheet.GetAllViewports()
 
 vports = []
@@ -45,6 +45,7 @@ for vp_id in vport_element_ids:
 counter = 0
 carry = ''
 
+# Keep renumbering until you escape
 try:
     while True:
         counter += 1

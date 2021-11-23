@@ -1,0 +1,6 @@
+title: "Renumber Elements by Spline"
+tooltip: |
+  Renumber elements (doors, rooms) by given spline. Doors will be numbered according to their proximity 
+  along the spline. Numbering will start from the beginning of the spline.
+
+  Author: Deyan Nenov
