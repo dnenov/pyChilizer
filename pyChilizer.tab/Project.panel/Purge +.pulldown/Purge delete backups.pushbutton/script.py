@@ -20,22 +20,26 @@ def GetDirectories(_path, _search_pat = "*", _search_opt = System.IO.SearchOptio
 
 
 # Recursively, go into each sub-folder
+# TO DO: capture permisions for restricted folders
 def DeleteRecursive(_dir):
-    dir_info = System.IO.DirectoryInfo(_dir)
-    # print(dir_info.FullName)
-    directories = GetDirectories(dir_info.FullName)
-    # print(directories)
+    try:
+        dir_info = System.IO.DirectoryInfo(_dir)
+        # print(dir_info.FullName)
+        directories = GetDirectories(dir_info.FullName)
+        # print(directories)
 
-    for dir in directories:
-        DeleteRecursive(dir)
+        for dir in directories:
+            DeleteRecursive(dir)
 
-    global files
-    global lengths
+        global files
+        global lengths
 
-    for file in dir_info.EnumerateFiles("*.0???.*"):
-        lengths += file.Length
-        files += 1
-        files_to_delete.append(file)
+        for file in dir_info.EnumerateFiles("*.0???.*"):
+            lengths += file.Length
+            files += 1
+            files_to_delete.append(file)
+    except:
+        pass
 
 
 # Enum for size units
