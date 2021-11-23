@@ -55,22 +55,17 @@ ref_array = DB.ReferenceArray()
 
 # Grab all geometrical reference lines to dimension to
 for gr in grids:
+    if gr.IsCurved: 
+        continue
+    # Obtaining reference with the below code works for all grid types https://autode.sk/3cJLY1a
+    ref = DB.Reference.ParseFromStableRepresentation(doc, gr.UniqueId)
+    ref_array.Append(ref)
     crv = gr.Curve
     p = crv.GetEndPoint(0)
     q = crv.GetEndPoint(1)
     v = p - q
     up = DB.XYZ.BasisZ
     direction = up.CrossProduct(v)
-
-    opt = DB.Options()
-    opt.ComputeReferences = True
-    opt.IncludeNonVisibleObjects = True
-    opt.View = active_view
-
-    for obj in gr.get_Geometry(opt):
-        if isinstance(obj, DB.Line):
-            ref = obj.Reference
-            ref_array.Append(ref)
 
 # Condion: Elevation/Section
 if not is_plan:
