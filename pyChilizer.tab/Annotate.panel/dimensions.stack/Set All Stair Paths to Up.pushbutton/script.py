@@ -1,4 +1,4 @@
-__title__ = "All Stair\nPath Up"
+__title__ = "Stair\nPaths Up"
 __doc__ = "Replace all Automatic Up / Down Stair Paths with Fixed Up Direction"
 
 
