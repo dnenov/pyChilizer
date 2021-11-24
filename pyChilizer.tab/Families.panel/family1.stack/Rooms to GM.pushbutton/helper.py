@@ -7,6 +7,7 @@ import rpw
 from pyrevit.revit.db import query
 import re
 
+
 # selection filter for rooms
 class RoomsFilter(ISelectionFilter):
     def AllowElement(self, elem):
@@ -37,6 +38,16 @@ def select_rooms_filter():
             return selection
     except Exceptions.OperationCanceledException:
         forms.alert("Cancelled", ok=True, warn_icon=False)
+
+
+def preselection_with_filter(bic):
+    # use pre-selection of elements, but filter them by given category name
+    pre_selection = []
+    for id in rpw.revit.uidoc.Selection.GetElementIds():
+        sel_el = revit.doc.GetElement(id)
+        if sel_el.Category.Id.IntegerValue == int(bic):
+            pre_selection.append(sel_el)
+    return pre_selection
 
 
 def inverted_transform(element):
@@ -74,7 +85,7 @@ def get_open_ends(curves_list):
         return None
 
 
-def room_bound_to_origin (room, translation):
+def room_bound_to_origin(room, translation):
     # iterate through room boundaries and translate them close to the origin
     # also query open ends and return none if the loop is open
     room_boundaries = DB.CurveArrArray()
@@ -90,27 +101,17 @@ def room_bound_to_origin (room, translation):
             return None
         curve_array = DB.CurveArray()
         for old_curve in curve_loop:
-            #old_curve = s.GetCurve()
+            # old_curve = s.GetCurve()
             new_curve = old_curve.CreateTransformed(translation)  # move curves to origin
             curve_array.Append(new_curve)
         room_boundaries.Append(curve_array)
     return room_boundaries
 
 
-def get_ref_lvl_plane (family_doc):
+def get_ref_lvl_plane(family_doc):
     # from given family doc, return Ref. Level reference plane
     find_planes = DB.FilteredElementCollector(family_doc).OfClass(DB.SketchPlane)
     return [plane for plane in find_planes if plane.Name == "Ref. Level"]
-
-
-def get_fam(some_name):
-    fam_name_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
-    found_fam = DB.FilteredElementCollector(revit.doc) \
-        .OfCategory(DB.BuiltInCategory.OST_GenericModel) \
-        .WherePasses(fam_name_filter) \
-        .WhereElementIsNotElementType().ToElements()
-
-    return found_fam
 
 
 def convert_length_to_internal(from_units):
@@ -118,3 +119,89 @@ def convert_length_to_internal(from_units):
     d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
     converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
     return converted
+
+
+def get_fam_type(family_name, type_name):
+    # not used here
+    fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
+    fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
+    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    fam_filter = DB.ElementParameterFilter(fam_filter_rule)
+
+    type_bip_id = DB.ElementId(DB.BuiltInParameter.ALL_MODEL_TYPE_NAME)
+    type_bip_provider = DB.ParameterValueProvider(type_bip_id)
+    type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), type_name, True)
+    type_filter = DB.ElementParameterFilter(type_filter_rule)
+
+    and_filter = DB.LogicalAndFilter(fam_filter, type_filter)
+
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(and_filter) \
+        .FirstElement()
+
+    return collector
+
+
+def get_fam(family_name):
+    fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
+    fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
+    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    fam_filter = DB.ElementParameterFilter(fam_filter_rule)
+
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(fam_filter) \
+        .WhereElementIsElementType() \
+        .FirstElement()
+
+    return collector
+
+
+def room_to_freeform(r, family_doc):
+    room_geo = r.ClosedShell
+    for geo in room_geo:
+        if isinstance(geo, DB.Solid) and geo.Volume > 0.0:
+            freeform = DB.FreeFormElement.Create(family_doc, geo)
+            family_doc.Regenerate()
+            delta = DB.XYZ(0, 0, 0) - freeform.get_BoundingBox(None).Min
+            move_ff = DB.ElementTransformUtils.MoveElement(
+                family_doc, freeform.Id, delta
+            )
+            # create and associate a material parameter
+            ext_mat_param = freeform.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
+            new_mat_param = family_doc.FamilyManager.AddParameter("Material",
+                                                                  DB.BuiltInParameterGroup.PG_MATERIALS,
+                                                                  DB.ParameterType.Material,
+                                                                  True)
+            family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
+                                                                                new_mat_param)
+    return freeform
+
+
+def room_to_extrusion(r, family_doc):
+    room_height = r.get_Parameter(DB.BuiltInParameter.ROOM_HEIGHT).AsDouble()
+    # helper: define inverted transform to translate room geometry to origin
+    geo_translation = inverted_transform(r)
+    # collect room boundaries and translate them to origin
+    room_boundaries = room_bound_to_origin(r, geo_translation)
+    # skip if the boundaries are not a closed loop (can happen with misaligned boundaries)
+    if not room_boundaries:
+        print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
+        return
+
+    ref_plane = get_ref_lvl_plane(family_doc)
+    # create extrusion, assign material, associate with shared parameter
+    try:
+        extrusion = family_doc.FamilyCreate.NewExtrusion(True, room_boundaries, ref_plane[0],
+                                                         room_height)
+        ext_mat_param = extrusion.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
+        # create and associate a material parameter
+        new_mat_param = family_doc.FamilyManager.AddParameter("Material",
+                                                              DB.BuiltInParameterGroup.PG_MATERIALS,
+                                                              DB.ParameterType.Material,
+                                                              False)
+        family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
+                                                                            new_mat_param)
+        return extrusion
+    except Exceptions.InternalException:
+        print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
+        return

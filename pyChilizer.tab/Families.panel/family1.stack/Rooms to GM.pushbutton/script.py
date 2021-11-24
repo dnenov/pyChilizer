@@ -1,56 +1,58 @@
 __title__ = "Room to Generic Model"
-__doc__ = "Transforms rooms into Generic Model families and places them in same place. The shape of the family is " \
-          "based on the room boundaries and room height. "
+__doc__ = "Transforms rooms into Generic Model families and places them in same place. " \
+          "\n\nShift+Click: Choose between Extrusion and Freeform" \
+          "\nExtrusion will create a flat and editable shape based on the room boundaries and height." \
+          "\nFreeForm will reproduce the room's shape (for example, cut by a pitched roof)"
 
 from pyrevit import revit, DB, script, forms, HOST_APP
 import tempfile
 import helper
 import re
+import config
 from Autodesk.Revit import Exceptions
 
 logger = script.get_logger()
 output = script.get_output()
 
-selection = helper.select_rooms_filter()
+# use preselected elements, filtering rooms only
+pre_selection = helper.preselection_with_filter(DB.BuiltInCategory.OST_Rooms)
+# or select rooms
+if pre_selection and forms.alert("You have selected {} elements. Do you want to use them?".format(len(pre_selection))):
+    selection = pre_selection
+else:
+    selection = helper.select_rooms_filter()
 
 if selection:
     # Create family doc from template
-    # get file template from location
-    fam_template_path = "C:\ProgramData\Autodesk\RVT " + \
-                        HOST_APP.version + "\Family Templates\English\Metric Generic Model.rft"
+    fam_template_path = __revit__.Application.FamilyTemplatePath + "\Metric Generic Model.rft"
 
     # iterate through rooms
     for room in selection:
-        # helper: define inverted transform to translate room geometry to origin
-        geo_translation = helper.inverted_transform(room)
-        # collect room boundaries and translate them to origin
-        room_boundaries = helper.room_bound_to_origin(room, geo_translation)
-
-        if not room_boundaries:
-            print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(room.Id)))
-            break
 
         # define new family doc
         try:
             new_family_doc = revit.doc.Application.NewFamilyDocument(fam_template_path)
-        except:
+        except NameError:
             forms.alert(msg="No Template",
-                        sub_msg="There is no Generic Model Template",
+                        sub_msg="There is no Generic Model Template in the default location.",
                         ok=True,
                         warn_icon=True, exitscript=True)
 
-        # Room params:
+        # To name the room, collect its parameters:
+        project_number = revit.doc.ProjectInformation.Number
+        if not project_number:
+            project_number = "Project"
         dept = room.get_Parameter(DB.BuiltInParameter.ROOM_DEPARTMENT).AsString()
         if not dept:
-            dept = "Generic Model"
+            dept = "Department"
         room_name = room.get_Parameter(DB.BuiltInParameter.ROOM_NAME).AsString()
         room_number = room.get_Parameter(DB.BuiltInParameter.ROOM_NUMBER).AsString()
-        room_height = room.get_Parameter(DB.BuiltInParameter.ROOM_HEIGHT).AsDouble()
+
         # construct family and family type names:
         fam_name = str(dept) + "_" + room_name + "_" + room_number
         # replace bad characters
-        fam_name = re.sub(r'[^\w\-_\. ]', '_', fam_name)
-        fam_type_name = room_name
+        fam_name = re.sub(r'[^\w\-_\. ]', '', fam_name)
+        fam_type_name = re.sub(r'[^\w\-_\. ]', '', room_name)
 
         # check if family already exists:
         while helper.get_fam(fam_name):
@@ -66,67 +68,36 @@ if selection:
             fam_path = fam_path.replace(".rfa", "_Copy 1.rfa")
             new_family_doc.SaveAs(fam_path, saveas_opt)
             fam_name = fam_name + "_Copy 1"
-        # Load Family into project
-        with revit.Transaction("Load Family", revit.doc):
-            try:
-
-                loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
-                revit.doc.Regenerate()
-            except Exception as err:
-                logger.error(err)
 
         # Create extrusion from room boundaries
         with revit.Transaction(doc=new_family_doc, name="Create Extrusion"):
-
-            ref_plane = helper.get_ref_lvl_plane(new_family_doc)
-            extrusion = None
-            # create extrusion, assign material, associate with shared parameter
-            try:
-                extrusion = new_family_doc.FamilyCreate.NewExtrusion(True, room_boundaries, ref_plane[0],
-                                                                     room_height)
-                ext_mat_param = extrusion.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
-                # create and associate a material parameter
-                new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
-                                                                          DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                                          DB.ParameterType.Material,
-                                                                          False)
-                new_family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
-                                                                                        new_mat_param)
-            except Exceptions.InternalException:
-                print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(room.Id)))
-                break
-            # save and close family
+            if config.get_config() == "Extrusion":
+                helper.room_to_extrusion(room, new_family_doc)
+                placement_point = room.Location.Point
+            else:
+                helper.room_to_freeform(room, new_family_doc)
+                placement_point = room.get_BoundingBox(None).Min
+        # save and close family
         save_opt = DB.SaveOptions()
         new_family_doc.Save(save_opt)
         new_family_doc.Close()
 
-        # Reload family with extrusion and place it in the same position as the room
-        with revit.Transaction("Reload Family", revit.doc):
+        # Load family with extrusion and place it in the same position as the room
+        with revit.Transaction("Load Family", revit.doc):
             loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
-            revit.doc.Regenerate()
-            str_type = DB.Structure.StructuralType.NonStructural
             # find family symbol and activate
-            fam_symbol = None
-            get_fam = DB.FilteredElementCollector(revit.doc).OfClass(DB.FamilySymbol).OfCategory(
-                DB.BuiltInCategory.OST_GenericModel).WhereElementIsElementType().ToElements()
-            for fam in get_fam:
-                type_name = fam.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
-                if str.strip(type_name) == fam_name:
-                    fam_symbol = fam
-                    fam_symbol.Name = fam_type_name
+            fam_symbol = helper.get_fam(fam_name)
+            if not fam_symbol.IsActive:
+                fam_symbol.Activate()
+                revit.doc.Regenerate()
+            # place family symbol at position
 
-                    if not fam_symbol.IsActive:
-                        fam_symbol.Activate()
-                        revit.doc.Regenerate()
-
-                    # place family symbol at position
-                    new_fam_instance = revit.doc.Create.NewFamilyInstance(room.Location.Point, fam_symbol,
-                                                                          room.Level,
-                                                                          str_type)
-
-                    correct_lvl_offset = new_fam_instance.get_Parameter(
-                        DB.BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM).Set(0)
-                    print(
-                        "Created and placed family instance : {1} - {2} {0} ".format(
-                            output.linkify(new_fam_instance.Id),
-                            fam_name, fam_type_name))
+            new_fam_instance = revit.doc.Create.NewFamilyInstance(placement_point, fam_symbol,
+                                                                  room.Level,
+                                                                  DB.Structure.StructuralType.NonStructural)
+            correct_lvl_offset = new_fam_instance.get_Parameter(
+                DB.BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM).Set(0)
+            print(
+                "Created and placed family instance : {1} - {2} {0} ".format(
+                    output.linkify(new_fam_instance.Id),
+                    fam_name, fam_type_name))

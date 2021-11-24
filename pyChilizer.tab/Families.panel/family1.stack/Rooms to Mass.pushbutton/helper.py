@@ -1,4 +1,4 @@
-"""Transform rooms to generic model families"""
+"""Transform rooms to families"""
 
 from pyrevit import revit, DB, script, forms, HOST_APP
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
@@ -8,11 +8,12 @@ import tempfile
 import rpw
 from pyrevit.revit.db import query
 
+
 # selection filter for rooms
 class RoomsFilter(ISelectionFilter):
     def AllowElement(self, elem):
         try:
-            if elem.Category.Name == "Rooms":
+            if elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_Rooms):
                 return True
             else:
                 return False
@@ -29,6 +30,7 @@ class RoomsFilter(ISelectionFilter):
             return False
 
 
+
 def select_rooms_filter():
     # select elements while applying category filter
     try:
@@ -39,6 +41,7 @@ def select_rooms_filter():
     except Exceptions.OperationCanceledException:
         forms.alert("Cancelled", ok=True, warn_icon=False)
 
+
 def convert_length_to_internal(from_units):
     # convert length units from project  to internal
     d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
@@ -46,40 +49,12 @@ def convert_length_to_internal(from_units):
     return converted
 
 
-def get_shared_param_by_name_type(sp_name, sp_type):
-    # query shared parameters file and return the desired parameter by name and parameter type
-    # will return first result
-    spf = revit.doc.Application.OpenSharedParameterFile()
-    try:
-        for def_group in spf.Groups:
-            for sp in def_group.Definitions:
-                if sp.Name == sp_name and sp.ParameterType == sp_type:
-                    return sp
-        if not sp:
-            forms.alert("Shared parameter not found", ok=True, warn_icon=True)
-            return None
-    except:
-        forms.alert("Shared parameter not found", ok=True, warn_icon=True )
-        return None
-
-def param_set_by_cat(cat):
-    # get all project type parameters of a given category
-    # can be used to gather parameters for UI selection
-    all_gm = DB.FilteredElementCollector(revit.doc).OfCategory(cat).WhereElementIsElementType().ToElements()
-    parameter_set = []
-    for gm in all_gm:
-        params = gm.Parameters
-        for p in params:
-            if p not in parameter_set and p.IsReadOnly == False:
-                parameter_set.append(p)
-    return parameter_set
-
-def preselection_with_filter (cat_name):
+def preselection_with_filter(bic):
     # use pre-selection of elements, but filter them by given category name
     pre_selection = []
     for id in rpw.revit.uidoc.Selection.GetElementIds():
         sel_el = revit.doc.GetElement(id)
-        if sel_el.Category.Name == cat_name:
+        if sel_el.Category.Id.IntegerValue == int(bic):
             pre_selection.append(sel_el)
     return pre_selection
 
@@ -95,7 +70,8 @@ def inverted_transform(element):
     # Transform from the room location point to origin
     return translated_cs.Inverse
 
-def room_bound_to_origin (room, translation):
+
+def room_bound_to_origin(room, translation):
     room_boundaries = DB.CurveArrArray()
     # get room boundary segments
     room_segments = room.GetBoundarySegments(DB.SpatialElementBoundaryOptions())
@@ -110,33 +86,22 @@ def room_bound_to_origin (room, translation):
     return room_boundaries
 
 
-def get_ref_lvl_plane (family_doc):
+def get_ref_lvl_plane(family_doc):
     # from given family doc, return Ref. Level reference plane
     find_planes = DB.FilteredElementCollector(family_doc).OfClass(DB.SketchPlane)
     return [plane for plane in find_planes if plane.Name == "Ref. Level"]
 
 
+def get_fam(family_name):
+    # get family symbol by family name, get any type
+    fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
+    fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
+    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
-def get_fam(some_name):
-    fam_name_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
-    found_fam = DB.FilteredElementCollector(revit.doc) \
-        .OfCategory(DB.BuiltInCategory.OST_GenericModel) \
-        .WherePasses(fam_name_filter) \
-        .WhereElementIsNotElementType().ToElements()
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(fam_filter) \
+        .WhereElementIsElementType() \
+        .FirstElement()
 
-    return found_fam
-
-
-def get_family_slow_way(name):
-    # look for loaded families, workaround to deal with extra space
-    get_loaded = DB.FilteredElementCollector(revit.doc) \
-        .OfCategory(DB.BuiltInCategory.OST_GenericModel) \
-        .WhereElementIsNotElementType() \
-        .ToElements()
-    if get_loaded:
-        for el in get_loaded:
-            el_f_name = el.get_Parameter(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM).AsString()
-            if el_f_name.strip(" ") == name:
-                return el
-
-
+    return collector
