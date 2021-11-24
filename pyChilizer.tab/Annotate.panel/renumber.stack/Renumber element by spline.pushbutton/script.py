@@ -17,6 +17,30 @@ doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 active_view = doc.ActiveView
 
+# Category Ban List
+cat_ban_list = [
+    -2000260,   # dimensions
+    -2000261,   # Automatic Sketch Dimensions
+    -2000954,   # railing path extension lines
+    -2000045,   # <Sketch>
+    -2000067,   # <Stair/Ramp Sketch: Boundary>
+    -2000262,   # Constraints
+    -2000920,   # Landings
+    -2000919,   # Stair runs
+    -2000123,   # Supports
+    -2000173,   # curtain wall grids
+    -2000171,   # curtain wall mullions
+    -2000530,   # reference places
+    -2000127,   # Balusters
+    -2000947,   # Handrail
+    -2000946,   # Top Rail
+    -2002000,    # Detail Items
+    -2000150,    # Generic Annotations
+    -2001260,    # Site
+    -2000280,    # Title Blocks
+    # -2000170,   # curtain panels
+]
+
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
     def __init__(self, cat):
@@ -48,12 +72,15 @@ def GetInstanceParameters(_cat):
         script.exit()
 
     parameters = [p.Definition.Name for p in el[0].Parameters \
-        if p.StorageType == DB.StorageType.String and p.Definition.ParameterType == DB.ParameterType.Text]
+        if p.StorageType == DB.StorageType.String and \
+         p.Definition.ParameterType == DB.ParameterType.Text and \
+         not p.IsReadOnly]
 
     return parameters
 
 family_instances = DB.FilteredElementCollector(doc).OfClass(DB.FamilyInstance).ToElements() # get all family instance categories
-cat_dict1 = {c.Name: c for c in [fam.Category for fam in family_instances]} # {key: value for value in list}
+
+cat_dict1 = {c.Name: c for c in [fam.Category for fam in family_instances] if c.Id.IntegerValue not in cat_ban_list} # {key: value for value in list}
 cat_rooms = DB.Category.GetCategory(doc, DB.BuiltInCategory.OST_Rooms)
 cat_dict1[cat_rooms.Name] = cat_rooms   # Add Rooms to the list of Categories
 
@@ -66,8 +93,15 @@ components = [
 form = FlexForm("Select", components)
 form.show()
 
-# assign chosen parameters
-cat_name = form.values["cat_combobox"].Name
+cat_name = ''
+
+try:    
+    # assign chosen parameters  
+    cat_name = form.values["cat_combobox"].Name
+except:
+    forms.alert_ifnot(cat_name, "No selection", exitscript=True)
+
+
 cat = GetBICFromCat(form.values["cat_combobox"])    #BuiltInCategory
 param_dict1 = GetInstanceParameters(cat)
 
@@ -84,12 +118,24 @@ components = [
 form = FlexForm("Select", components)
 form.show()
 
-parameter = form.values["param_combobox"]
-prefix = form.values["prefix_box"]
-leading = int(form.values["leading_box"])
+parameter = None
+prefix = None
+leading = None
+
+try:    
+    parameter = form.values["param_combobox"]
+    prefix = form.values["prefix_box"]
+    leading = int(form.values["leading_box"])
+except:
+    forms.alert("Bad selection")
+    script.exit()
+
+if not parameter or not prefix or not leading:
+    forms.alert("Bad selection")
+    script.exit()
 
 if not leading:
-    form.alert("Incorrect leading number")
+    forms.alert("Incorrect leading number")
     leading = 3
 
 spline = doc.GetElement(uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, \
@@ -98,7 +144,6 @@ spline = doc.GetElement(uidoc.Selection.PickObject(UI.Selection.ObjectType.Eleme
 
 elements = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter(cat), \
         "Select Elements")
-
 
 # The dictionary containing all keys=elements + values=location
 door_dict = {}
