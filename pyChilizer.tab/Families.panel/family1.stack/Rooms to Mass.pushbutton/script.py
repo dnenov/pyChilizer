@@ -1,6 +1,3 @@
-__title__ = "Room to Mass"
-__doc__ = "Transforms rooms into Mass families."
-
 from pyrevit import revit, DB, script, forms, HOST_APP
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
 import tempfile
