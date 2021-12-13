@@ -147,12 +147,15 @@ l4 = DB.Line.CreateBound(p4, p1)
 rectangle = [l1, l2, l3, l4]
 offset = 0
 
+# geting these two def out of the loop to avoid repetition
+i_s = invis_style()
+a_f_t = any_fill_type()
 
 with revit.Transaction("Draw Legend"):
     for v_filter in sorted(legend_od):
 
         # draw rectangles with filled region
-        new_reg = draw_rectangle(offset, any_fill_type(), view, invis_style())
+        new_reg = draw_rectangle(offset, a_f_t, view, i_s)
 
         # override fill and colour
         ogs = DB.OverrideGraphicSettings()
