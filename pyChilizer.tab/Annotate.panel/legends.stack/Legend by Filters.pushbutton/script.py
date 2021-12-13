@@ -11,7 +11,7 @@ from pyrevit.framework import List
 def get_solid_fill_pat():
     # get fill pattern element Solid Fill
     fill_pats = DB.FilteredElementCollector(revit.doc).OfClass(DB.FillPatternElement)
-    solid_pat = [pat for pat in fill_pats if str(pat.Name) == "<Solid fill>"]
+    solid_pat = [pat for pat in fill_pats if str(pat.Name) == "<Solid fill>" or str(pat.Name) == "<Remplissage de solide>"] # to make it work in french
     return solid_pat[0]
 
 
@@ -45,11 +45,12 @@ def draw_rectangle(y_offset, fill_type, view, line_style):
 
 
 def invis_style(doc=revit.doc):
-    # invisible line style
     invis = None
-    for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
-        if gs.Name == "<Invisible lines>":
-            invis = gs
+    id = DB.ElementId(DB.BuiltInCategory.OST_InvisibleLines)
+    coll = DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle)
+    for i in coll:
+        if i.GraphicsStyleCategory.Id == id:
+            invis = i
     return invis
 
 col_views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View).WhereElementIsNotElementType()
@@ -147,12 +148,15 @@ l4 = DB.Line.CreateBound(p4, p1)
 rectangle = [l1, l2, l3, l4]
 offset = 0
 
+# geting these two def out of the loop to avoid repetition
+i_s = invis_style()
+a_f_t = any_fill_type()
 
 with revit.Transaction("Draw Legend"):
     for v_filter in sorted(legend_od):
 
         # draw rectangles with filled region
-        new_reg = draw_rectangle(offset, any_fill_type(), view, invis_style())
+        new_reg = draw_rectangle(offset, a_f_t, view, i_s)
 
         # override fill and colour
         ogs = DB.OverrideGraphicSettings()
