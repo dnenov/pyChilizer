@@ -45,11 +45,12 @@ def draw_rectangle(y_offset, fill_type, view, line_style):
 
 
 def invis_style(doc=revit.doc):
-    # invisible line style
     invis = None
-    for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
-        if i.GraphicsStyleCategory.Name.find("invisible") != -1: # to make it work in french
-            invis = gs
+    id = DB.ElementId(DB.BuiltInCategory.OST_InvisibleLines)
+    coll = DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle)
+    for i in coll:
+        if i.GraphicsStyleCategory.Id == id:
+            invis = i
     return invis
 
 col_views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View).WhereElementIsNotElementType()
