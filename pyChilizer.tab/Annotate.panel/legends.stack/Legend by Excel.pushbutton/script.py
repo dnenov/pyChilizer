@@ -31,8 +31,9 @@ def translate_rectg_vert(rec, vert_offset):
 
 def get_solid_fill_pat(doc=revit.doc):
     # get fill pattern element Solid Fill
+    # updated to work in other languages
     fill_pats = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
-    solid_pat = [pat for pat in fill_pats if str(pat.Name) == "<Solid fill>"]
+    solid_pat = [pat for pat in fill_pats if pat.GetFillPattern().IsSolidFill]
     return solid_pat[0]
 
 
@@ -65,11 +66,11 @@ def draw_rectangle(y_offset, fill_type, view, line_style):
 
 
 def invis_style(doc=revit.doc):
-    invis = None
+    # get invisible lines graphics style
     for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
-        if gs.Name == "<Invisible lines>":
-            invis = gs
-    return invis
+        # find style using the category Id
+        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
+            return gs
 
 
 def get_any_text_type_id():
@@ -161,6 +162,10 @@ if path:
 
     offset = 0
 
+    i_s = invis_style()
+    a_f_t = any_fill_type()
+    solid_fill = get_solid_fill_pat()
+
     with revit.Transaction("Draw Legend"):
         for box_name in colour_scheme_od:
             # draw rectangles with filled region
@@ -172,18 +177,18 @@ if path:
                     chosen_fr_type = type_exists
                     chosen_fr_type.ForegroundPatternColor = colour_scheme_od[box_name]
                 else:
-                    chosen_fr_type = any_fill_type().Duplicate(box_name)
+                    chosen_fr_type = a_f_t.Duplicate(box_name)
                     chosen_fr_type.ForegroundPatternColor = colour_scheme_od[box_name]
-                    chosen_fr_type.ForegroundPatternId = get_solid_fill_pat().Id
+                    chosen_fr_type.ForegroundPatternId = solid_fill.Id
                 # draw a region of that existing or created filled region type
-                new_reg = draw_rectangle(offset, chosen_fr_type, view, invis_style())
+                new_reg = draw_rectangle(offset, chosen_fr_type, view, i_s)
             # if user chose to use overrides
             else:
-                new_reg = draw_rectangle(offset, any_fill_type(), view, invis_style())
+                new_reg = draw_rectangle(offset, a_f_t, view, i_s)
                 # override fill and colour
                 ogs = DB.OverrideGraphicSettings()
                 ogs.SetSurfaceForegroundPatternColor(colour_scheme_od[box_name])
-                ogs.SetSurfaceForegroundPatternId(get_solid_fill_pat().Id)
+                ogs.SetSurfaceForegroundPatternId(solid_fill.Id)
                 view.SetElementOverrides(new_reg.Id, ogs)
 
             # place text next to filled regions

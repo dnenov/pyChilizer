@@ -1,6 +1,3 @@
-__title__ = "List by Workset"
-__doc__ = "List numbers of elements of project's Worksets, broken down by category."
-
 from pyrevit import revit, DB, UI, forms
 from collections import defaultdict
 
@@ -68,4 +65,4 @@ for w in worksets:
         print ("\t\t\t TOTAL : {} elements".format(counter))
 
     else:
-        print("\n \n OPTION: {} EMPTY".format(w.Name))
+        print("\n \n WORKSET: {} EMPTY".format(w.Name))

@@ -8,10 +8,11 @@ from collections import OrderedDict
 from pyrevit.framework import List
 
 
-def get_solid_fill_pat():
+def get_solid_fill_pat(doc=revit.doc):
     # get fill pattern element Solid Fill
-    fill_pats = DB.FilteredElementCollector(revit.doc).OfClass(DB.FillPatternElement)
-    solid_pat = [pat for pat in fill_pats if str(pat.Name) == "<Solid fill>" or str(pat.Name) == "<Remplissage de solide>"] # to make it work in french
+    # updated to work in other languages
+    fill_pats = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
+    solid_pat = [pat for pat in fill_pats if pat.GetFillPattern().IsSolidFill]
     return solid_pat[0]
 
 
@@ -45,13 +46,11 @@ def draw_rectangle(y_offset, fill_type, view, line_style):
 
 
 def invis_style(doc=revit.doc):
-    invis = None
-    id = DB.ElementId(DB.BuiltInCategory.OST_InvisibleLines)
-    coll = DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle)
-    for i in coll:
-        if i.GraphicsStyleCategory.Id == id:
-            invis = i
-    return invis
+    # get invisible lines graphics style
+    for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
+        # find style using the category Id
+        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
+            return gs
 
 col_views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View).WhereElementIsNotElementType()
 
@@ -151,6 +150,7 @@ offset = 0
 # geting these two def out of the loop to avoid repetition
 i_s = invis_style()
 a_f_t = any_fill_type()
+solid_fill = get_solid_fill_pat()
 
 with revit.Transaction("Draw Legend"):
     for v_filter in sorted(legend_od):
@@ -162,7 +162,7 @@ with revit.Transaction("Draw Legend"):
         ogs = DB.OverrideGraphicSettings()
         colour = legend_od[v_filter]
         ogs.SetSurfaceForegroundPatternColor(legend_od[v_filter])
-        ogs.SetSurfaceForegroundPatternId(get_solid_fill_pat().Id)
+        ogs.SetSurfaceForegroundPatternId(solid_fill.Id)
         view.SetElementOverrides(new_reg.Id, ogs)
 
         # place text next to filled regions
