@@ -14,6 +14,7 @@ To make use of this extension, you will need to install pyRevit first. Then down
 
 #### Step 1
 Download the most recent [release](https://github.com/dnenov/pyChilizer/releases/tag/v0.1.0) of pyChilizer.
+<img src="/images/how-to-1.jpg" alt="how-to-step-1">
 
 #### Step 2
 Save the .exe file in the pyRevit extensions folder, which is usually located here: **%USERPROFILE%\AppData\Roaming\pyRevit\Extensions**
@@ -25,11 +26,11 @@ Alternativelly, you might follow the steps below to manually add the extension t
 
 #### Step 1
 
-<img src="/images/how-to-1.png" alt="how-to-step-1">
+<img src="/images/how-to-1.png" alt="alt-how-to-step-1">
 
 #### Step 2
 
-<img src="/images/how-to-2.PNG" alt="how-to-step-2" height="50%" width="50%">
+<img src="/images/how-to-2.PNG" alt="alt-how-to-step-2" height="50%" width="50%">
 
 
 For more information you can refer to pyRevit [website](https://www.notion.so/pyRevit-bd907d6292ed4ce997c46e84b6ef67a0).
