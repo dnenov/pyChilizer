@@ -4,7 +4,24 @@ __doc__ = "Add Room Calculation Point to multiple Families \nv1.0"
 from pyrevit import revit, DB, HOST_APP, UI, forms
 from pyrevit.framework import List
 from pyrevit.forms import ProgressBar
+from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 
+
+# Selection Filter
+class SymbolISelectionFilter(ISelectionFilter):
+    def __init__(self):
+        self
+
+    def AllowElement(self, e):
+        if e.Symbol:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def AllowReference(ref, point):
+        return True
+        
 
 # http://www.revitapidocs.com/2018.1/5da8e3c5-9b49-f942-02fc-7e7783fe8f00.htm
 class FamilyLoaderOptionsHandler(DB.IFamilyLoadOptions):
@@ -51,12 +68,14 @@ spfile = GetSharedParameterFile()
 selection = revit.get_selection()
 
 if len(selection) == 0:
-    selection = GetElements(revit.uidoc.Selection.PickObjects(UI.Selection.ObjectType.Element))
+    selection = GetElements(revit.uidoc.Selection.PickObjects(UI.Selection.ObjectType.Element, SymbolISelectionFilter()))
 
 counter = 0
 max_value = len(selection)
 
-forms.alert_ifnot(max_value == 0, "No families were selected.", exitscript=True)
+# print(str(max_value))
+
+forms.alert_ifnot(max_value != 0, "No families were selected.", exitscript=True)
 
 with ProgressBar(cancellable=True, step=1) as pb:
     for sel in selection:
