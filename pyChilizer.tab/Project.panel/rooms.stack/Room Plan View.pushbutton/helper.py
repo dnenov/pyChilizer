@@ -41,11 +41,21 @@ def select_rooms_filter():
         forms.alert("Cancelled", ok=True, warn_icon=False, exitscript=True)
 
 
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
+def convert_length_to_internal(d_units):
+    # convert length units from display units to internal
+    internal_units = get_int_length_units()
+    converted = DB.UnitUtils.ConvertToInternalUnits(d_units, internal_units)
     return converted
+
+
+def get_int_length_units(doc=revit.doc):
+    # fetch Revit's internal units depending on the Revit version
+    units = doc.GetUnits()
+    if HOST_APP.is_newer_than(2021):
+        int_length_units = units.GetFormatOptions(DB.SpecTypeId.Length).GetUnitTypeId()
+    else:
+        int_length_units = units.GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    return int_length_units
 
 
 def param_set_by_cat(cat):
@@ -147,7 +157,6 @@ def get_family_slow_way(name):
                 return el
 
 
-# 0001
 def create_sheet(sheet_num, sheet_name, titleblock):
     sheet_num = str(sheet_num)
 
@@ -333,16 +342,9 @@ def apply_vt(v, vt):
     return
 
 
-def is_metric(doc):
-    display_units = DB.Document.GetUnits(doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    metric_units = [
-        DB.DisplayUnitType.DUT_METERS,
-        DB.DisplayUnitType.DUT_CENTIMETERS,
-        DB.DisplayUnitType.DUT_DECIMETERS,
-        DB.DisplayUnitType.DUT_MILLIMETERS,
-        DB.DisplayUnitType.DUT_METERS_CENTIMETERS
-    ]
-    if display_units in set(metric_units):
+def is_metric(doc=revit.doc):
+    # check if doc is metric
+    if doc.DisplayUnitSystem == DB.DisplayUnit.METRIC:
         return True
     else:
         return False
@@ -355,14 +357,15 @@ def correct_input_units(val):
     except ValueError:
         # format the string using regex
         digits = re.findall("[0-9.]+", val)[0]
-    if is_metric(revit.doc):
-        return DB.UnitUtils.ConvertToInternalUnits(float(digits), DB.DisplayUnitType.DUT_MILLIMETERS)
-    else:
-        return DB.UnitUtils.ConvertToInternalUnits(float(digits), DB.DisplayUnitType.DUT_DECIMAL_INCHES)
+    # get internal units for conversion
+    int_units = get_int_length_units()
+    return DB.UnitUtils.ConvertToInternalUnits(float(digits), int_units)
+
+
+
 
 
 def get_aligned_crop(geo, transform):
-
     rotated_geo = geo.GetTransformed(transform)
     revit.doc.Regenerate()
     rb = rotated_geo.GetBoundingBox()
@@ -376,7 +379,6 @@ def get_aligned_crop(geo, transform):
 
 
 def get_bb_outline(bb):
-
     r1 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
     r2 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
     r3 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)

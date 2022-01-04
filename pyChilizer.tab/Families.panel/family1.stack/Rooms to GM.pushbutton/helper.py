@@ -114,10 +114,14 @@ def get_ref_lvl_plane(family_doc):
     return [plane for plane in find_planes if plane.Name == "Ref. Level"]
 
 
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
+def convert_length_to_internal(d_units):
+    # convert length units from display units to internal
+    units = revit.doc.GetUnits()
+    if HOST_APP.is_newer_than(2021):
+        internal_units = units.GetFormatOptions(DB.SpecTypeId.Length).GetUnitTypeId()
+    else: # pre-2021
+        internal_units = units.GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    converted = DB.UnitUtils.ConvertToInternalUnits(d_units, internal_units)
     return converted
 
 

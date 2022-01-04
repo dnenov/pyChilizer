@@ -2,35 +2,28 @@
 """
 
 from pyrevit import revit, script, DB, forms
-
+from rpw.ui.forms import FlexForm, Label, ComboBox, Button
 # config = script.get_config()
 custom_config = script.get_config("Room to GM")
 
 
-class PrevSelectedItem(forms.TemplateListItem):
-    pass
-
-
 def get_config():
     prev_cats = custom_config.get_option("chosen_method", [])
-    # options = {"Extrusion": True, "FreeForm": False}
     return prev_cats
 
 
 def config_method():
     prev_choice = get_config()
-    opts = ["Extrusion", "FreeForm"]
-    res = forms.SelectFromList.show([PrevSelectedItem(
-        op,
-        checkable=True,
-        checked=False)
-        for op in opts],
+    opts = ["Extrusion", "Freeform"]
+    components = [
+        Label("Choose method:"),
+        ComboBox(name="method", options=opts, default=prev_choice),
+        Button("Remember")]
 
-        title="Select Transformation Method",
-        button_name="Apply",
-        height=250,
-        width=400
-    )
+    form = FlexForm("Settings", components)
+    form.show()
+    res = form.values["method"]
+
     if res:
         save_config(res)
     return res

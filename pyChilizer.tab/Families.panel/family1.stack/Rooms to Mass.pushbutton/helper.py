@@ -30,7 +30,6 @@ class RoomsFilter(ISelectionFilter):
             return False
 
 
-
 def select_rooms_filter():
     # select elements while applying category filter
     try:
@@ -42,10 +41,14 @@ def select_rooms_filter():
         forms.alert("Cancelled", ok=True, warn_icon=False)
 
 
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
+def convert_length_to_internal(d_units):
+    # convert length units from display units to internal
+    units = revit.doc.GetUnits()
+    if HOST_APP.is_newer_than(2021):
+        internal_units = units.GetFormatOptions(DB.SpecTypeId.Length).GetUnitTypeId()
+    else:  # pre-2021
+        internal_units = units.GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    converted = DB.UnitUtils.ConvertToInternalUnits(d_units, internal_units)
     return converted
 
 

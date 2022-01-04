@@ -48,7 +48,7 @@ elevation_type = [vt for vt in DB.FilteredElementCollector(revit.doc).OfClass(DB
 view_scale = 50
 
 # get units for Crop Offset variable
-display_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+
 if helper.is_metric(revit.doc):
     unit_sym = "Crop Offset [mm]"
     default_crop_offset = 350

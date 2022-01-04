@@ -4,12 +4,18 @@ from pyrevit import revit, DB, UI, HOST_APP, forms
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 from collections import OrderedDict
 from pyrevit.framework import List
+from Autodesk.Revit import Exceptions
+import sys
 
 
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
+def convert_length_to_internal(d_units):
+    # convert length units from display units to internal
+    units = revit.doc.GetUnits()
+    if HOST_APP.is_newer_than(2021):
+        internal_units = units.GetFormatOptions(DB.SpecTypeId.Length).GetUnitTypeId()
+    else: # pre-2021
+        internal_units = units.GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
+    converted = DB.UnitUtils.ConvertToInternalUnits(d_units, internal_units)
     return converted
 
 
@@ -37,12 +43,15 @@ components = [
     Button("Select")
 ]
 form = FlexForm("Select", components)
-form.show()
-# assign chosen values
-text_style = form.values["textstyle_combobox"]
-box_width = int(form.values["box_width"])
-box_height = int(form.values["box_height"])
-box_offset = int(form.values["box_offset"])
+ok = form.show()
+if ok:
+    # assign chosen values
+    text_style = form.values["textstyle_combobox"]
+    box_width = int(form.values["box_width"])
+    box_height = int(form.values["box_height"])
+    box_offset = int(form.values["box_offset"])
+else:
+    sys.exit()
 
 # dims and scale
 scale = float(view.Scale)/ 100
