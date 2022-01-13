@@ -11,6 +11,8 @@ from Autodesk.Revit.UI import *
 from pyrevit import revit, DB
 from pyrevit import forms
 
+from pyrevit import coreutils
+
 import msvcrt
 
 #THIS IS NOT NECESSARY, BUT COULD BE HANDY
@@ -46,6 +48,7 @@ counter = 0
 carry = ''
 
 # Keep renumbering until you escape
+# TO DO: Fix it for silly inputs - always renumber from (00)1
 try:
     while True:
         counter += 1
@@ -61,7 +64,7 @@ try:
                     detail_number.Set("99")
                     cur_vp_param.Set(carry)
                     detail_number.Set(str(counter))
+                else 
 except:    
-    TaskDialog.Show('Test', 'Done')
     pass
 
