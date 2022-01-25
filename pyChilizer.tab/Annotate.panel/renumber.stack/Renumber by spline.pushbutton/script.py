@@ -80,7 +80,12 @@ def GetInstanceParameters(_cat):
 
 family_instances = DB.FilteredElementCollector(doc).OfClass(DB.FamilyInstance).ToElements() # get all family instance categories
 
-cat_dict1 = {c.Name: c for c in [fam.Category for fam in family_instances] if c.Id.IntegerValue not in cat_ban_list} # {key: value for value in list}
+# {key: value for value in list}
+cat_dict1 = {f.Category.Name: f.Category \
+        for f in [fam for fam in family_instances] \
+        if f.Category.Id.IntegerValue not in cat_ban_list \
+        and f.LevelId and f.get_Geometry(DB.Options())} 
+
 cat_rooms = DB.Category.GetCategory(doc, DB.BuiltInCategory.OST_Rooms)
 cat_dict1[cat_rooms.Name] = cat_rooms   # Add Rooms to the list of Categories
 
@@ -125,52 +130,70 @@ leading = None
 try:    
     parameter = form.values["param_combobox"]
     prefix = form.values["prefix_box"]
-    leading = int(form.values["leading_box"])
+    leading = int(form.values["leading_box"])    
 except:
-    forms.alert("Bad selection")
+    if leading == None or prefix == None:
+        if prefix == None:
+            prefix = ""
+        if leading == None:
+            leading = 0
+    else:
+        forms.alert("Bad selection, something's off")
+        script.exit()
+
+if not parameter:
+    forms.alert("Bad parameter selection")
     script.exit()
 
-if not parameter or not prefix or not leading:
-    forms.alert("Bad selection")
+
+try:
+    TaskDialog.Show("Select Spline", "Select a spline, start of spline defines first")
+    spline = doc.GetElement(uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, \
+        CustomISelectionFilter(DB.BuiltInCategory.OST_Lines), \
+            "Select Spline"))
+except:
+    forms.alert("Aborted by User, no spline selected")
     script.exit()
 
-if not leading:
-    forms.alert("Incorrect leading number")
-    leading = 3
-
-spline = doc.GetElement(uidoc.Selection.PickObject(UI.Selection.ObjectType.Element, \
-    CustomISelectionFilter(DB.BuiltInCategory.OST_Lines), \
-        "Select Spline"))
-
-elements = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter(cat), \
-        "Select Elements")
+try:
+    TaskDialog.Show("Select Elements", "Select all the elements you want to renumber")
+    elements = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter(cat), \
+            "Select Elements")
+except:
+    forms.alert("Aborted by User, no element selected")
+    script.exit()
 
 # The dictionary containing all keys=elements + values=location
-door_dict = {}
-sorted_door_dict = {}
+el_dict = {}
+sorted_el_dict = {}
 parameters = []
 
 for e in elements:
     el = doc.GetElement(e.Id)
     loc = el.Location
     if loc:
-        door_dict[el] = loc.Point
+        el_dict[el] = loc.Point
     else:
-        door_dict[el] = el.get_BoundingBox(doc.ActiveView).Min
+        el_dict[el] = el.get_BoundingBox(doc.ActiveView).Min
 
-for dr, pt in door_dict.items():
+for dr, pt in el_dict.items():
     crv = spline.GeometryCurve
     param = crv.ComputeNormalizedParameter(crv.Project(pt).Parameter)
-    sorted_door_dict[dr] = param
+    sorted_el_dict[dr] = param
     parameters.append(param)
 
-sorted = sorted(sorted_door_dict, key=sorted_door_dict.get)
+sorted = sorted(sorted_el_dict, key=sorted_el_dict.get)
 
 counter = 1
 
 with revit.Transaction("Renumber Elements", doc):
     for el in sorted:
-        el.LookupParameter(parameter).Set(str(prefix + str(counter).zfill(leading)))
+        value = \
+            str(prefix + str(counter).zfill(leading)) \
+            if (leading and leading > 0) else \
+            str(prefix + str(counter))
+        
+        el.LookupParameter(parameter).Set(value)
         counter += 1
 
-forms.alert("{0} {1} renumbered.".format(len(sorted), cat_name))
+TaskDialog.Show("Success", "{0} {1} renumbered.".format(len(sorted), cat_name))
