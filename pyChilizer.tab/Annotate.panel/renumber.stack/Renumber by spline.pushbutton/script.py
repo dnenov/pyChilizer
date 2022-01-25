@@ -115,9 +115,11 @@ components = [
     Label("Pick Parameter:"),
     ComboBox(name="param_combobox", options=param_dict1, sorted=True),
     Label("Prefix"),
-    TextBox(name="prefix_box", Text="X00_"),
+    TextBox(name="prefix_box", Text="X00_", description ="Any prefix that you would like your numbering to have, such as 'ID_' for Interior Door"),
     Label("Leading zeroes"),
     TextBox(name="leading_box", Text="3"),
+    Label("Starting element number"),
+    TextBox(name="count_start", Text="1"),
     Button("Select")
 ]
 form = FlexForm("Select", components)
@@ -126,17 +128,21 @@ form.show()
 parameter = None
 prefix = None
 leading = None
+start_count = None
 
 try:    
     parameter = form.values["param_combobox"]
     prefix = form.values["prefix_box"]
     leading = int(form.values["leading_box"])    
+    start_count = int(form.values["count_start"])    
 except:
-    if leading == None or prefix == None:
+    if leading == None or prefix == None or start_count == None:
         if prefix == None:
             prefix = ""
         if leading == None:
             leading = 0
+        if start_count == None:
+            start_count = 1
     else:
         forms.alert("Bad selection, something's off")
         script.exit()
@@ -157,7 +163,7 @@ except:
 
 try:
     TaskDialog.Show("Select Elements", "Select all the elements you want to renumber")
-    elements = uidoc.Selection.PickElementsByRectangle(CustomISelectionFilter(cat), \
+    elements = uidoc.Selection.PickObjects(UI.Selection.ObjectType.Element, CustomISelectionFilter(cat), \
             "Select Elements")
 except:
     forms.alert("Aborted by User, no element selected")
@@ -169,7 +175,7 @@ sorted_el_dict = {}
 parameters = []
 
 for e in elements:
-    el = doc.GetElement(e.Id)
+    el = doc.GetElement(e)
     loc = el.Location
     if loc:
         el_dict[el] = loc.Point
@@ -184,7 +190,7 @@ for dr, pt in el_dict.items():
 
 sorted = sorted(sorted_el_dict, key=sorted_el_dict.get)
 
-counter = 1
+counter = start_count
 
 with revit.Transaction("Renumber Elements", doc):
     for el in sorted:
