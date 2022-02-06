@@ -5,7 +5,7 @@ __doc__ = "Creates room plans and elevations and places them on a sheet. Assign 
 
 from pyrevit import revit, DB, script, forms, HOST_APP
 from rpw.ui.forms import FlexForm, Label, TextBox, Button,ComboBox, Separator
-import helper
+import helper, locator
 from pyrevit.revit.db import query
 from itertools import izip
 from collections import namedtuple
@@ -194,12 +194,15 @@ for room in selection:
 
     
     # get positions on sheet
-    poss = helper.get_sheet_pos(sheet, chosen_crop_offset, 4, 3)
+    loc = locator.Locator(sheet, chosen_crop_offset, 4, 3, "cross")
+    poss = loc.pos
     plan_position = poss[4]
     elevations_positions = [poss[0], poss[2], poss[6], poss[8]] # a bit hard coded and not pretty at the moment
 
-    print("plan pos: {0}".format(str(plan_position)))
+    print("plan pos: {0}".format(str(304.8 * plan_position)))
 
+    elevations = []
+    
     with revit.Transaction("Add Views to Sheet", revit.doc):
         # apply view template
         helper.apply_vt(viewplan, chosen_vt_plan)
@@ -217,6 +220,7 @@ for room in selection:
             place_elevation.get_Parameter(
                 DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER
             ).Set(i)
+            elevations.append(place_elevation)
             # # correct the positions
             # delta_el = pos - place_elevation.GetBoxOutline().MinimumPoint
             # move_el = DB.ElementTransformUtils.MoveElement(
@@ -228,6 +232,10 @@ for room in selection:
             helper.apply_vt(el, chosen_vt_elevation)
 
         revit.doc.Regenerate()
+
+        actual_elevation_positions = [str(el.GetBoxCenter().X*304.8) for el in elevations]
+        assumed_elevation_positions = [str(el.X*304.8) for el in elevations_positions]
+        print("actual vs assumed: {0} : {1}".format(actual_elevation_positions, assumed_elevation_positions))
 
 
     # with revit.Transaction("Add Views to Sheet", revit.doc):

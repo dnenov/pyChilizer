@@ -176,33 +176,7 @@ def create_sheet(sheet_num, sheet_name, titleblock):
 
     return new_datasheet
 
-# get positions based on the layout
-# pass num colomns and rows
-def get_sheet_pos(sheet, offset, col, row):
-    x_min = sheet.Outline.Min.U
-    y_min = sheet.Outline.Min.V
-    x_max = sheet.Outline.Max.U
-    y_max = sheet.Outline.Max.V
-    width = x_max - x_min - offset
-    height = y_max - y_min
-    col_width = width / float(col)
-    row_height = height / float(row)
-
-    # adjust for the relative 0,0,0 of the sheet (for some weird reason the sheet is not placed in the 0,0,0)
-    delta = DB.XYZ(x_min, y_min, 0) 
-
-    positions = []
-
-    print("width: {0} and height: {1} and the offset in internal units was {2}".format(str(width), str(height), str(offset)))
-    print("and the initial point of the sheet is {0},{1}".format(str(x_min), str(y_min)))
-
-    for i in range(int(col)):
-        for j in range(int(row)):
-            positions.append(DB.XYZ((col_width * 0.5) + i * col_width, (row_height * 0.5) + j * row_height, 0) + delta)
-
-    return positions
-
-
+    
 def find_crop_box(view):
     with DB.TransactionGroup(revit.doc, "Temp to find crop") as tg:
         tg.Start()
