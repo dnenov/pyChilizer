@@ -106,24 +106,15 @@ layout_ori = form.values["layout_orientation"]
 tb_ori = form.values["tb_orientation"]
 rotation = form.values["el_rotation"]
 
-# TODO: LAYOUTING OPTIONS
-
-# approximate positions for viewports on an A1 sheet
-plan_position = DB.XYZ(0.282, 0.434, 0)
-elevations_positions = [
-    DB.XYZ(1.14, 1.25, 0),
-    DB.XYZ(1.805, 1.25, 0),
-    DB.XYZ(1.14, 0.434, 0),
-    DB.XYZ(1.805, 0.434, 0),
-]
-
 for room in selection:
     with revit.Transaction("Create Plan", revit.doc):
         level = room.Level
         room_location = room.Location.Point
+
         # Create Floor Plan
         viewplan = DB.ViewPlan.Create(revit.doc, floor_plan_type.Id, level.Id)
         viewplan.Scale = view_scale
+
         # Create Reflected Ceilign Plan
         viewRCP = DB.ViewPlan.Create(revit.doc, ceiling_plan_type.Id, level.Id)
         viewRCP.Scale = view_scale
@@ -164,7 +155,6 @@ for room in selection:
                 # this part corrects the rotation of the BBox
 
                 tr_left = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room_location)
-                # tr_right = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, -angle, room_location)
                 tr_right = tr_left.Inverse
 
                 rotate_left = helper.get_aligned_crop(room.ClosedShell, tr_left)
@@ -227,52 +217,39 @@ for room in selection:
         revit.doc.Regenerate()
 
         sheet = helper.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
-
-
     
     # get positions on sheet
     loc = locator.Locator(sheet, titleblock_offset, tb_ori, layout_ori)
-    # poss = loc.pos
     plan_position = loc.plan
     RCP_position = loc.rcp
     elevations_positions = loc.elevations 
-    # elevations_positions = [poss[1], poss[5], poss[7], poss[3]] # a bit hard coded and not pretty at the moment
 
-    # print("plan pos: {0}".format(str(304.8 * plan_position)))
-
-    elevations = []
+    elevations = [] # collect all elevations we create
     
     with revit.Transaction("Add Views to Sheet", revit.doc):
         # apply view template
         helper.apply_vt(viewplan, chosen_vt_plan) 
         helper.apply_vt(viewRCP, chosen_vt_rcp_plan) 
+
         # place view on sheet
         place_plan = DB.Viewport.Create(revit.doc, sheet.Id, viewplan.Id, plan_position)
         place_RCP = DB.Viewport.Create(revit.doc, sheet.Id, viewRCP.Id, RCP_position)
-        # # correct the position, taking Viewport Box Outline as reference
-        # delta_pl = plan_position - place_plan.GetBoxOutline().MinimumPoint
-        # move_pl = DB.ElementTransformUtils.MoveElement(
-        #     revit.doc, place_plan.Id, delta_pl
-        # )
         
         for el, pos, i in izip(elevations_col, elevations_positions, elevation_count):
             # place elevations
             place_elevation = DB.Viewport.Create(revit.doc, sheet.Id, el.Id, pos)
+
             # if user selected, rotate elevations
             if rotation and i == "A":
                 place_elevation.Rotation = DB.ViewportRotation.Counterclockwise
             if rotation and i == "C":
                 place_elevation.Rotation = DB.ViewportRotation.Clockwise    
+
             # set viewport detail number
             place_elevation.get_Parameter(
                 DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER
             ).Set(i)
             elevations.append(place_elevation)
-            # # correct the positions
-            # delta_el = pos - place_elevation.GetBoxOutline().MinimumPoint
-            # move_el = DB.ElementTransformUtils.MoveElement(
-            #     revit.doc, place_elevation.Id, delta_el
-            # )
             revit.doc.Regenerate()
             room_bb = room.get_BoundingBox(el)
             helper.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
@@ -284,40 +261,5 @@ for room in selection:
         loc.realign_pos(revit.doc, [place_plan], [plan_position])
         loc.realign_pos(revit.doc, [place_RCP], [RCP_position])
         loc.realign_pos(revit.doc, elevations, elevations_positions)
-
-        # actual_elevation_positions = [str(el.GetBoxCenter().X*304.8) for el in elevations]
-        # assumed_elevation_positions = [str(el.X*304.8) for el in elevations_positions]
-        # print("actual vs assumed: {0} : {1}".format(actual_elevation_positions, assumed_elevation_positions))
-
-
-    # with revit.Transaction("Add Views to Sheet", revit.doc):
-    #     # apply view template
-    #     helper.apply_vt(viewplan, chosen_vt_plan)
-    #     # place view on sheet
-    #     place_plan = DB.Viewport.Create(revit.doc, sheet.Id, viewplan.Id, plan_position)
-    #     # correct the position, taking Viewport Box Outline as reference
-    #     delta_pl = plan_position - place_plan.GetBoxOutline().MinimumPoint
-    #     move_pl = DB.ElementTransformUtils.MoveElement(
-    #         revit.doc, place_plan.Id, delta_pl
-    #     )
-    #     for el, pos, i in izip(elevations_col, elevations_positions, elevation_count):
-    #         # place elevations
-    #         place_elevation = DB.Viewport.Create(revit.doc, sheet.Id, el.Id, pos)
-    #         # set viewport detail number
-    #         place_elevation.get_Parameter(
-    #             DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER
-    #         ).Set(i)
-    #         # correct the positions
-    #         delta_el = pos - place_elevation.GetBoxOutline().MinimumPoint
-    #         move_el = DB.ElementTransformUtils.MoveElement(
-    #             revit.doc, place_elevation.Id, delta_el
-    #         )
-    #         revit.doc.Regenerate()
-    #         room_bb = room.get_BoundingBox(el)
-    #         helper.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
-    #         helper.apply_vt(el, chosen_vt_elevation)
-
-    #     revit.doc.Regenerate()
-
 
         print("Sheet : {0} \t Room {1} ".format(output.linkify(sheet.Id), room_name_nr))
