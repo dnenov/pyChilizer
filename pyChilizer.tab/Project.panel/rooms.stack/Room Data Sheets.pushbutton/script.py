@@ -4,7 +4,7 @@ __doc__ = "Creates room plans and elevations and places them on a sheet. Assign 
           "to include the walls. "
 
 from pyrevit import revit, DB, script, forms, HOST_APP
-from rpw.ui.forms import FlexForm, Label, TextBox, Button,ComboBox, Separator
+from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, CheckBox, Separator
 import helper, locator
 from pyrevit.revit.db import query
 from itertools import izip
@@ -40,7 +40,8 @@ viewsection_dict["<None>"] = None
 # collect titleblocks in a dictionary
 titleblocks = DB.FilteredElementCollector(revit.doc).OfCategory(DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
 tblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
-tblock_orientation = ['Vertical', 'Horizontal', 'Portrait']
+tblock_orientation = ['Vertical', 'Horizontal']
+layout_orientation = ['Tiles', 'Cross']
 
 # collect and take the first view plan type, elevation type, set default scale
 col_view_types = (DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType())
@@ -57,6 +58,12 @@ else:
     unit_sym = "Crop Offset [decimal inches]"
     default_crop_offset = 9.0
 
+# get units for Crop Offset variable
+if helper.is_metric(revit.doc):
+    tb_offset = 165
+else:
+    tb_offset = 4.2
+
 components = [
     Label ("Select Titleblock"),
     ComboBox(name="tb", options=sorted(tblock_dict)),
@@ -64,12 +71,20 @@ components = [
     TextBox("sheet_number", Text="1000"),
     Label(unit_sym),
     TextBox("crop_offset", Text=str(default_crop_offset)),
-    Label("View Template for Plans"),
-    ComboBox(name="vt_plans", options=sorted(viewplan_dict), default="<None>"),
-    Label("View Template for Elevations"),
-    ComboBox(name="vt_elevs", options=sorted(viewsection_dict), default="<None>"),
+    Label("Titleblock (internal) offset"),
+    TextBox("titleblock_offset", Text=str(tb_offset)),
+    Label("Layout orientation"),
+    ComboBox(name="layout_orientation", options=layout_orientation, default="Tiles"),
+    CheckBox("el_rotation", 'Rotate elevations', default=False),
     Label("Titleblock orientation"),
     ComboBox(name="tb_orientation", options=tblock_orientation, default="Vertical"),
+    Separator(),
+    Label("View Template for Plans"),
+    ComboBox(name="vt_plans", options=sorted(viewplan_dict), default="<None>"),
+    Label("View Template for Reflected Ceiling Plans"),
+    ComboBox(name="vt_rcp_plans", options=sorted(viewplan_dict), default="<None>"),
+    Label("View Template for Elevations"),
+    ComboBox(name="vt_elevs", options=sorted(viewsection_dict), default="<None>"),
     Separator(),
     Button("Select"),
 ]
@@ -82,10 +97,14 @@ form.show()
 # match the variables with user input
 chosen_sheet_nr = form.values["sheet_number"]
 chosen_vt_plan = viewplan_dict[form.values["vt_plans"]]
+chosen_vt_rcp_plan = viewplan_dict[form.values["vt_rcp_plans"]]
 chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
 chosen_tb = tblock_dict[form.values["tb"]]
 chosen_crop_offset = helper.correct_input_units(form.values["crop_offset"])
-rotation = True
+titleblock_offset = helper.correct_input_units(form.values["titleblock_offset"])
+layout_ori = form.values["layout_orientation"]
+tb_ori = form.values["tb_orientation"]
+rotation = form.values["el_rotation"]
 
 # TODO: LAYOUTING OPTIONS
 
@@ -212,27 +231,29 @@ for room in selection:
 
     
     # get positions on sheet
-    loc = locator.Locator(sheet, chosen_crop_offset, 4, 3, "cross")
-    poss = loc.pos
-    plan_position = poss[4]
-    RCP_position = poss[10]
-    elevations_positions = [poss[1], poss[5], poss[7], poss[3]] # a bit hard coded and not pretty at the moment
+    loc = locator.Locator(sheet, titleblock_offset, tb_ori, layout_ori)
+    # poss = loc.pos
+    plan_position = loc.plan
+    RCP_position = loc.rcp
+    elevations_positions = loc.elevations 
+    # elevations_positions = [poss[1], poss[5], poss[7], poss[3]] # a bit hard coded and not pretty at the moment
 
-    print("plan pos: {0}".format(str(304.8 * plan_position)))
+    # print("plan pos: {0}".format(str(304.8 * plan_position)))
 
     elevations = []
     
     with revit.Transaction("Add Views to Sheet", revit.doc):
         # apply view template
-        helper.apply_vt(viewplan, chosen_vt_plan)
+        helper.apply_vt(viewplan, chosen_vt_plan) 
+        helper.apply_vt(viewRCP, chosen_vt_rcp_plan) 
         # place view on sheet
         place_plan = DB.Viewport.Create(revit.doc, sheet.Id, viewplan.Id, plan_position)
+        place_RCP = DB.Viewport.Create(revit.doc, sheet.Id, viewRCP.Id, RCP_position)
         # # correct the position, taking Viewport Box Outline as reference
         # delta_pl = plan_position - place_plan.GetBoxOutline().MinimumPoint
         # move_pl = DB.ElementTransformUtils.MoveElement(
         #     revit.doc, place_plan.Id, delta_pl
         # )
-        place_RCP = DB.Viewport.Create(revit.doc, sheet.Id, viewRCP.Id, RCP_position)
         
         for el, pos, i in izip(elevations_col, elevations_positions, elevation_count):
             # place elevations
@@ -258,7 +279,10 @@ for room in selection:
             helper.apply_vt(el, chosen_vt_elevation)
 
         revit.doc.Regenerate()
-
+        
+        # realign the viewports to their desired positions
+        loc.realign_pos(revit.doc, [place_plan], [plan_position])
+        loc.realign_pos(revit.doc, [place_RCP], [RCP_position])
         loc.realign_pos(revit.doc, elevations, elevations_positions)
 
         # actual_elevation_positions = [str(el.GetBoxCenter().X*304.8) for el in elevations]
