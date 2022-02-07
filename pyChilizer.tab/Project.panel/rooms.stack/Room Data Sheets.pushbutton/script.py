@@ -45,6 +45,7 @@ tblock_orientation = ['Vertical', 'Horizontal', 'Portrait']
 # collect and take the first view plan type, elevation type, set default scale
 col_view_types = (DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType())
 floor_plan_type = [vt for vt in col_view_types if vt.FamilyName == "Floor Plan"][0]
+ceiling_plan_type = [vt for vt in col_view_types if vt.FamilyName == "Ceiling Plan"][0]
 elevation_type = [vt for vt in DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType) if vt.FamilyName == "Elevation"][0]
 view_scale = 50
 
@@ -84,6 +85,7 @@ chosen_vt_plan = viewplan_dict[form.values["vt_plans"]]
 chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
 chosen_tb = tblock_dict[form.values["tb"]]
 chosen_crop_offset = helper.correct_input_units(form.values["crop_offset"])
+rotation = True
 
 # TODO: LAYOUTING OPTIONS
 
@@ -103,6 +105,9 @@ for room in selection:
         # Create Floor Plan
         viewplan = DB.ViewPlan.Create(revit.doc, floor_plan_type.Id, level.Id)
         viewplan.Scale = view_scale
+        # Create Reflected Ceilign Plan
+        viewRCP = DB.ViewPlan.Create(revit.doc, ceiling_plan_type.Id, level.Id)
+        viewRCP.Scale = view_scale
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_el = helper.find_crop_box(viewplan)
@@ -115,6 +120,7 @@ for room in selection:
             revit.doc, crop_box_el.Id, axis, angle
         )
         viewplan.CropBoxActive = True
+        viewRCP.CropBoxActive = True
         revit.doc.Regenerate()
 
         room_boundaries = helper.get_room_bound(room)
@@ -126,6 +132,8 @@ for room in selection:
                 )
                 crop_shape = viewplan.GetCropRegionShapeManager()
                 crop_shape.SetCropShape(offset_boundaries)
+                crop_RCP = viewRCP.GetCropRegionShapeManager()
+                crop_RCP.SetCropShape(offset_boundaries)
                 revit.doc.Regenerate()
             # for some shapes the offset will fail, then use BBox method
             except:
@@ -133,6 +141,7 @@ for room in selection:
                 # room bbox in this view
                 new_bbox = room.get_BoundingBox(viewplan)
                 viewplan.CropBox = new_bbox
+                viewRCP.CropBox = new_bbox
                 # this part corrects the rotation of the BBox
 
                 tr_left = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room_location)
@@ -146,8 +155,10 @@ for room in selection:
 
 
                 crsm = viewplan.GetCropRegionShapeManager()
-                curve_loop_offset = DB.CurveLoop.CreateViaOffset(aligned_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)
+                crsm_RCP = viewRCP.GetCropRegionShapeManager()  
+                curve_loop_offset = DB.CurveLoop.CreateViaOffset(aligned_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)                
                 crsm.SetCropShape(aligned_crop_loop)
+                crsm_RCP.SetCropShape(aligned_crop_loop)
 
         # Rename Floor Plan
         room_name_nr = (
@@ -160,6 +171,13 @@ for room in selection:
             viewplan_name = viewplan_name + " Copy 1"
         viewplan.Name = viewplan_name
         helper.set_anno_crop(viewplan)
+
+        # Rename Reflected Ceiling Plan
+        RCP_name = room_name_nr + "Reflected Ceiling Plan"
+        while helper.get_view(RCP_name):
+            RCP_name = RCP_name + " Copy 1"
+        viewRCP.Name = RCP_name
+        helper.set_anno_crop(viewRCP)
 
         # Create Elevations
         revit.doc.Regenerate()
@@ -197,7 +215,8 @@ for room in selection:
     loc = locator.Locator(sheet, chosen_crop_offset, 4, 3, "cross")
     poss = loc.pos
     plan_position = poss[4]
-    elevations_positions = [poss[0], poss[2], poss[6], poss[8]] # a bit hard coded and not pretty at the moment
+    RCP_position = poss[10]
+    elevations_positions = [poss[1], poss[5], poss[7], poss[3]] # a bit hard coded and not pretty at the moment
 
     print("plan pos: {0}".format(str(304.8 * plan_position)))
 
@@ -213,9 +232,16 @@ for room in selection:
         # move_pl = DB.ElementTransformUtils.MoveElement(
         #     revit.doc, place_plan.Id, delta_pl
         # )
+        place_RCP = DB.Viewport.Create(revit.doc, sheet.Id, viewRCP.Id, RCP_position)
+        
         for el, pos, i in izip(elevations_col, elevations_positions, elevation_count):
             # place elevations
             place_elevation = DB.Viewport.Create(revit.doc, sheet.Id, el.Id, pos)
+            # if user selected, rotate elevations
+            if rotation and i == "A":
+                place_elevation.Rotation = DB.ViewportRotation.Counterclockwise
+            if rotation and i == "C":
+                place_elevation.Rotation = DB.ViewportRotation.Clockwise    
             # set viewport detail number
             place_elevation.get_Parameter(
                 DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER
@@ -233,9 +259,11 @@ for room in selection:
 
         revit.doc.Regenerate()
 
-        actual_elevation_positions = [str(el.GetBoxCenter().X*304.8) for el in elevations]
-        assumed_elevation_positions = [str(el.X*304.8) for el in elevations_positions]
-        print("actual vs assumed: {0} : {1}".format(actual_elevation_positions, assumed_elevation_positions))
+        loc.realign_pos(revit.doc, elevations, elevations_positions)
+
+        # actual_elevation_positions = [str(el.GetBoxCenter().X*304.8) for el in elevations]
+        # assumed_elevation_positions = [str(el.X*304.8) for el in elevations_positions]
+        # print("actual vs assumed: {0} : {1}".format(actual_elevation_positions, assumed_elevation_positions))
 
 
     # with revit.Transaction("Add Views to Sheet", revit.doc):

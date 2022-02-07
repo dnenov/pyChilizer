@@ -1,11 +1,12 @@
 from pyrevit import DB
+from itertools import izip
 
 class Locator:
     def __init__(self, sheet, offset, col, row, layout):
         self.pos = self.get_sheet_pos(sheet, offset, col, row)
 
-    # get positions based on the layout
-    # pass num columns and rows
+    '''get positions based on the layout
+    pass num columns and rows'''
     def get_sheet_pos(self, sheet, offset, col, row):
         x_min = sheet.Outline.Min.U
         y_min = sheet.Outline.Min.V
@@ -29,3 +30,13 @@ class Locator:
                 positions.append(DB.XYZ((col_width * 0.5) + i * col_width, (row_height * 0.5) + j * row_height, 0) + delta)
 
         return positions
+
+    '''due to some unknown mystic forces, 
+    the location of the view creation is not correct
+    the label is most probably the cause of this problem
+    but we could not reverse engineer the algorithm used by the Gods of Revit'''
+    def realign_pos(self, doc, views, positions):
+        for view, pos in izip(views, positions):
+            actual = view.GetBoxCenter()
+            delta = pos - actual # substract the desired position from the actual position
+            DB.ElementTransformUtils.MoveElement(doc, view.Id, delta)
