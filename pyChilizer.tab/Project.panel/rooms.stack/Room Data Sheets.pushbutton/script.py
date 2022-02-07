@@ -9,7 +9,7 @@ import helper, locator
 from pyrevit.revit.db import query
 from itertools import izip
 from collections import namedtuple
-import math
+import math, sys
 from Autodesk.Revit import Exceptions
 from pyrevit.framework import List
 import re
@@ -90,21 +90,22 @@ components = [
 ]
 
 form = FlexForm("Set Sheet Number", components)
-form.show()
+ok = form.show()
 
-# TODO: Catch if user cancelled the form
-
-# match the variables with user input
-chosen_sheet_nr = form.values["sheet_number"]
-chosen_vt_plan = viewplan_dict[form.values["vt_plans"]]
-chosen_vt_rcp_plan = viewplan_dict[form.values["vt_rcp_plans"]]
-chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
-chosen_tb = tblock_dict[form.values["tb"]]
-chosen_crop_offset = helper.correct_input_units(form.values["crop_offset"])
-titleblock_offset = helper.correct_input_units(form.values["titleblock_offset"])
-layout_ori = form.values["layout_orientation"]
-tb_ori = form.values["tb_orientation"]
-rotation = form.values["el_rotation"]
+if ok:
+    # match the variables with user input
+    chosen_sheet_nr = form.values["sheet_number"]
+    chosen_vt_plan = viewplan_dict[form.values["vt_plans"]]
+    chosen_vt_rcp_plan = viewplan_dict[form.values["vt_rcp_plans"]]
+    chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
+    chosen_tb = tblock_dict[form.values["tb"]]
+    chosen_crop_offset = helper.correct_input_units(form.values["crop_offset"])
+    titleblock_offset = helper.correct_input_units(form.values["titleblock_offset"])
+    layout_ori = form.values["layout_orientation"]
+    tb_ori = form.values["tb_orientation"]
+    rotation = form.values["el_rotation"]
+else:
+    sys.exit()
 
 for room in selection:
     with revit.Transaction("Create Plan", revit.doc):
