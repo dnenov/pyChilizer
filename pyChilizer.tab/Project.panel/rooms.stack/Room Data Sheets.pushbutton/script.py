@@ -16,15 +16,11 @@ import re
 
 output = script.get_output()
 logger = script.get_logger()    #helps to debug script, not used
-bound_opt = DB.SpatialElementBoundaryOptions()  #not used?
 
 # use preselected elements, filtering rooms only
 selection = helper.select_rooms_filter()
 if not selection:
     forms.alert("You need to select at least one Room.", exitscript=True)
-
-# TODO: try using room boundaries for crop, if fails use BBox, correct the bbox rotation on fail
-# TODO: move all functions to helper
 
 # collect all view templates for plans and sections
 viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection) # collect sections
@@ -44,10 +40,10 @@ tblock_orientation = ['Vertical', 'Horizontal']
 layout_orientation = ['Tiles', 'Cross']
 
 # collect and take the first view plan type, elevation type, set default scale
-col_view_types = (DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType())
-floor_plan_type = [vt for vt in col_view_types if vt.FamilyName == "Floor Plan"][0]
-ceiling_plan_type = [vt for vt in col_view_types if vt.FamilyName == "Ceiling Plan"][0]
-elevation_type = [vt for vt in DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType) if vt.FamilyName == "Elevation"][0]
+col_view_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType().ToElements()
+floor_plan_type = [vt for vt in col_view_types if helper.get_name(vt) == "Floor Plan"][0]
+ceiling_plan_type = [vt for vt in col_view_types if helper.get_name(vt) == "Ceiling Plan"][0]
+elevation_type = [vt for vt in col_view_types if helper.get_name(vt) in ["Interior Elevation", "Internal Elevation"]][0]
 view_scale = 50
 
 # get units for Crop Offset variable
@@ -103,7 +99,7 @@ if ok:
     titleblock_offset = helper.correct_input_units(form.values["titleblock_offset"])
     layout_ori = form.values["layout_orientation"]
     tb_ori = form.values["tb_orientation"]
-    rotation = form.values["el_rotation"]
+    elev_rotate = form.values["el_rotation"]
 else:
     sys.exit()
 
@@ -121,15 +117,23 @@ for room in selection:
         viewRCP.Scale = view_scale
 
     # find crop box element (method with transactions, must be outside transaction)
-    crop_box_el = helper.find_crop_box(viewplan)
+    crop_box_plan = helper.find_crop_box(viewplan)
+    crop_box_rcp = helper.find_crop_box(viewRCP)
 
-    with revit.Transaction("Create Elevations", revit.doc):
+    with revit.Transaction("Crop and Create Elevations", revit.doc):
         # rotate the view plan along the room's longest boundary
         axis = helper.get_bb_axis_in_view(room, viewplan)
+
         angle = helper.room_rotation_angle(room)
-        rotated = DB.ElementTransformUtils.RotateElement(
-            revit.doc, crop_box_el.Id, axis, angle
+
+        rotated_plan = DB.ElementTransformUtils.RotateElement(
+            revit.doc, crop_box_plan.Id, axis, angle
         )
+
+        rotated_rcp = DB.ElementTransformUtils.RotateElement(
+            revit.doc, crop_box_rcp.Id, axis, angle
+        )
+
         viewplan.CropBoxActive = True
         viewRCP.CropBoxActive = True
         revit.doc.Regenerate()
@@ -146,29 +150,21 @@ for room in selection:
                 crop_RCP = viewRCP.GetCropRegionShapeManager()
                 crop_RCP.SetCropShape(offset_boundaries)
                 revit.doc.Regenerate()
-            # for some shapes the offset will fail, then use BBox method
+            # for some shapes the offset is not obvious and will fail, then use BBox method:
             except:
                 revit.doc.Regenerate()
-                # room bbox in this view
-                new_bbox = room.get_BoundingBox(viewplan)
-                viewplan.CropBox = new_bbox
-                viewRCP.CropBox = new_bbox
-                # this part corrects the rotation of the BBox
+                # using a helper method, get the outlines of the room's bounding box,
+                # then rotate them with an already known angle (inverted)
+                rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room_location)
+                rotated_crop_loop = helper.get_aligned_crop(room.ClosedShell, rotation.Inverse)
 
-                tr_left = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room_location)
-                tr_right = tr_left.Inverse
-
-                rotate_left = helper.get_aligned_crop(room.ClosedShell, tr_left)
-                rotate_right = helper.get_aligned_crop(room.ClosedShell, tr_right)
-
-                aligned_crop_loop = rotate_right
-
-
+                # offset the curve loop with given offset
+                # set the loop as Crop Shape of the view using CropRegionShapeManager
                 crsm = viewplan.GetCropRegionShapeManager()
-                crsm_RCP = viewRCP.GetCropRegionShapeManager()  
-                curve_loop_offset = DB.CurveLoop.CreateViaOffset(aligned_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)                
-                crsm.SetCropShape(aligned_crop_loop)
-                crsm_RCP.SetCropShape(aligned_crop_loop)
+                crsm_rcp = viewRCP.GetCropRegionShapeManager()
+                curve_loop_offset = DB.CurveLoop.CreateViaOffset(rotated_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)
+                crsm.SetCropShape(curve_loop_offset)
+                crsm_rcp.SetCropShape(curve_loop_offset)
 
         # Rename Floor Plan
         room_name_nr = (
@@ -216,7 +212,6 @@ for room in selection:
         )
         rotated = new_marker.Location.Rotate(marker_axis, angle)
         revit.doc.Regenerate()
-
         sheet = helper.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
     
     # get positions on sheet
@@ -241,9 +236,9 @@ for room in selection:
             place_elevation = DB.Viewport.Create(revit.doc, sheet.Id, el.Id, pos)
 
             # if user selected, rotate elevations
-            if rotation and i == "A":
+            if elev_rotate and i == "A":
                 place_elevation.Rotation = DB.ViewportRotation.Counterclockwise
-            if rotation and i == "C":
+            if elev_rotate and i == "C":
                 place_elevation.Rotation = DB.ViewportRotation.Clockwise    
 
             # set viewport detail number

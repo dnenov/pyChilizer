@@ -319,9 +319,11 @@ def room_rotation_angle(room):
     # get angle and correct value
     bbox_angle = v.AngleTo(DB.XYZ.BasisY)
     # correct angles
-    if degree_conv(bbox_angle) > 90:
+    if bbox_angle > math.radians(90):
         bbox_angle = bbox_angle - math.radians(90)
-    elif degree_conv(bbox_angle) < 45:
+        if bbox_angle < math.radians(45):
+            bbox_angle = -bbox_angle
+    elif bbox_angle < math.radians(45):
         bbox_angle = -bbox_angle
     else:
         bbox_angle = bbox_angle
@@ -391,3 +393,6 @@ def get_bb_outline(bb):
 
     curves_set = [l1, l2, l3, l4]
     return curves_set
+
+def get_name(el):
+    return DB.Element.Name.__get__(el)
