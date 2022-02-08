@@ -1,0 +1,222 @@
+from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
+import math
+from pyrevit.framework import List
+
+
+def inverted_transform(element, view):
+    # get element location and return its inverted transform
+    # can be used to translate geometry to 0,0,0 origin to recreate geometry inside a family
+    el_location = element.Location.Point
+    bb = element.get_BoundingBox(view)
+    orig_cs = bb.Transform
+    # Creates a transform that represents a translation via the specified vector.
+    translated_cs = orig_cs.CreateTranslation(el_location)
+    # Transform from the room location point to origin
+    return translated_cs.Inverse
+
+
+def room_bound_to_origin(room, translation):
+    room_boundaries = DB.CurveArrArray()
+    # get room boundary segments
+    room_segments = room.GetBoundarySegments(DB.SpatialElementBoundaryOptions())
+    # iterate through loops of segments and add them to the array
+    for seg_loop in room_segments:
+        curve_array = DB.CurveArray()
+        for s in seg_loop:
+            old_curve = s.GetCurve()
+            new_curve = old_curve.CreateTransformed(translation)  # move curves to origin
+            curve_array.Append(new_curve)
+        room_boundaries.Append(curve_array)
+    return room_boundaries
+
+
+def get_ref_lvl_plane(family_doc):
+    # from given family doc, return Ref. Level reference plane
+    find_planes = DB.FilteredElementCollector(family_doc).OfClass(DB.SketchPlane)
+    return [plane for plane in find_planes if plane.Name == "Ref. Level"]
+
+
+def find_crop_box(view):
+    with DB.TransactionGroup(revit.doc, "Temp to find crop") as tg:
+        tg.Start()
+        with DB.Transaction(revit.doc, "temp") as t2:
+            t2.Start()
+            view.CropBoxVisible = False
+            t2.Commit()
+            hidden = DB.FilteredElementCollector(revit.doc, view.Id).ToElementIds()
+            t2.Start()
+            view.CropBoxVisible = True
+            t2.Commit()
+            crop_box_el = DB.FilteredElementCollector(revit.doc, view.Id).Excluding(hidden).FirstElement()
+            tg.RollBack()
+            if crop_box_el:
+                return crop_box_el
+            else:
+                print("CROP NOT FOUND")
+                return None
+
+
+def point_equal_list(pt, lst):
+    for el in list(lst):
+        if pt.IsAlmostEqualTo(el, 0.003):
+            return el
+    else:
+        return None
+
+
+def get_open_ends(curves_list):
+    #check if any open ends in a curves list
+    endpoints = []
+    for curve in curves_list:
+        for i in range(2):
+            duplicate = point_equal_list(curve.GetEndPoint(i), endpoints)
+            if duplicate:
+                endpoints.remove(duplicate)
+            else:
+                endpoints.append(curve.GetEndPoint(i))
+    if endpoints:
+        return endpoints
+    else:
+        return None
+
+
+
+def get_room_bound(r):
+    room_boundaries = DB.CurveLoop()
+    # get room boundary segments
+    room_segments = r.GetBoundarySegments(DB.SpatialElementBoundaryOptions())
+    # iterate through loops of segments and add them to the array
+    outer_loop = room_segments[0]
+    # for curve in outer_loop:
+    curve_loop = [s.GetCurve() for s in outer_loop]
+    open_ends = get_open_ends(curve_loop)
+    if open_ends:
+        return None
+    for curve in curve_loop:
+        # try:
+        room_boundaries.Append(curve)
+        # except Exceptions.ArgumentException:
+        #     print (curve)
+    return room_boundaries
+
+
+def get_longest_boundary(r):
+    # get the rooms's longest boundary that is not an arc
+    bound = r.GetBoundarySegments(DB.SpatialElementBoundaryOptions())
+    longest = None
+    for loop in bound:
+        for b in loop:
+            curve = b.GetCurve()
+            if curve.Length > longest and isinstance(curve, DB.Line):
+                longest = curve
+    return longest
+
+
+def room_rotation_angle(room):
+    # get the angle of the room's longest boundary to Y axis
+    # choose one longest curve to use as reference for rotation
+    longest_boundary = get_longest_boundary(room)
+    p = longest_boundary.GetEndPoint(0)
+    q = longest_boundary.GetEndPoint(1)
+    v = q - p
+    # get angle and correct value
+    bbox_angle = v.AngleTo(DB.XYZ.BasisY)
+    # correct angles
+    if bbox_angle > math.radians(90):
+        bbox_angle = bbox_angle - math.radians(90)
+        if bbox_angle < math.radians(45):
+            bbox_angle = -bbox_angle
+    elif bbox_angle < math.radians(45):
+        bbox_angle = -bbox_angle
+    else:
+        bbox_angle = bbox_angle
+    return bbox_angle
+
+
+def get_bb_outline(bb):
+
+    r1 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
+    r2 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
+    r3 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
+    r4 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z)
+
+    l1 = DB.Line.CreateBound(r1, r2)
+    l2 = DB.Line.CreateBound(r2, r3)
+    l3 = DB.Line.CreateBound(r3, r4)
+    l4 = DB.Line.CreateBound(r4, r1)
+
+    curves_set = [l1, l2, l3, l4]
+    return curves_set
+
+
+def set_crop_to_bb(element, view, crop_offset):
+    # set the crop box of the view to elements's bounding box in that view
+    # draw 2 sets of outlines for each orientation (front/back, left/right)
+    bb = element.get_BoundingBox(view)
+
+    pt1 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
+    pt2 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Max.Z)
+    pt3 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Max.Z)
+    pt4 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
+
+    pt7 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z)
+    pt8 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Max.Z)
+    pt5 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Max.Z)
+    pt6 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
+
+    l1 = DB.Line.CreateBound(pt1, pt2)
+    l2 = DB.Line.CreateBound(pt2, pt3)
+    l3 = DB.Line.CreateBound(pt3, pt4)
+    l4 = DB.Line.CreateBound(pt4, pt1)
+
+    l5 = DB.Line.CreateBound(pt6, pt5)
+    l6 = DB.Line.CreateBound(pt5, pt8)
+    l7 = DB.Line.CreateBound(pt8, pt7)
+    l8 = DB.Line.CreateBound(pt7, pt6)
+
+    curves_set1 = [l1, l2, l3, l4]
+    curves_set2 = [l5, l6, l7, l8]
+
+    crsm = view.GetCropRegionShapeManager()
+    view_direction = view.ViewDirection
+
+    try:
+        # try with set 1, if doesn't work try with set 2
+        crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set1))
+        # offset the crop with the specified offset
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+        # in case the offset works inwards, correct it to offset outwards
+        if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+        crsm.SetCropShape(curve_loop_offset)
+    except:
+        crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set2))
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+        if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+        crsm.SetCropShape(curve_loop_offset)
+    return
+
+
+def get_bb_axis_in_view(element, view):
+    # return the central axis of element's bounding box in view
+    # get viewplan bbox, center
+    bbox = element.get_BoundingBox(view)
+    center = 0.5 * (bbox.Max + bbox.Min)
+    axis = DB.Line.CreateBound(center, center + DB.XYZ.BasisZ)
+    return axis
+
+
+def get_aligned_crop(geo, transform):
+
+    rotated_geo = geo.GetTransformed(transform)
+    revit.doc.Regenerate()
+    rb = rotated_geo.GetBoundingBox()
+    bb_outline = get_bb_outline(rb)
+    # rotate the curves back using the opposite direction
+    tr_back = transform.Inverse
+    rotate_curves_back = [c.CreateTransformed(tr_back) for c in bb_outline]
+    crop_loop = DB.CurveLoop.Create(List[DB.Curve](rotate_curves_back))
+
+    return crop_loop
+

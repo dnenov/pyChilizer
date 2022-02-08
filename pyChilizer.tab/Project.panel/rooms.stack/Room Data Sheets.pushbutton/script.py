@@ -5,20 +5,16 @@ __doc__ = "Creates room plans and elevations and places them on a sheet. Assign 
 
 from pyrevit import revit, DB, script, forms, HOST_APP
 from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, CheckBox, Separator
-import helper, locator
-from pyrevit.revit.db import query
+import locator
 from itertools import izip
-from collections import namedtuple
-import math, sys
-from Autodesk.Revit import Exceptions
-from pyrevit.framework import List
-import re
+import sys
+from pychilizer import units, select, geo, database
 
 output = script.get_output()
 logger = script.get_logger()    #helps to debug script, not used
 
 # use preselected elements, filtering rooms only
-selection = helper.select_rooms_filter()
+selection = select.select_rooms_filter()
 if not selection:
     forms.alert("You need to select at least one Room.", exitscript=True)
 
@@ -41,13 +37,13 @@ layout_orientation = ['Tiles', 'Cross']
 
 # collect and take the first view plan type, elevation type, set default scale
 col_view_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType().ToElements()
-floor_plan_type = [vt for vt in col_view_types if helper.get_name(vt) == "Floor Plan"][0]
-ceiling_plan_type = [vt for vt in col_view_types if helper.get_name(vt) == "Ceiling Plan"][0]
-elevation_type = [vt for vt in col_view_types if helper.get_name(vt) in ["Interior Elevation", "Internal Elevation"]][0]
+floor_plan_type = [vt for vt in col_view_types if database.get_name(vt) == "Floor Plan"][0]
+ceiling_plan_type = [vt for vt in col_view_types if database.get_name(vt) == "Ceiling Plan"][0]
+elevation_type = [vt for vt in col_view_types if database.get_name(vt) in ["Interior Elevation", "Internal Elevation"]][0]
 view_scale = 50
 
 # get units for Crop Offset variable
-if helper.is_metric(revit.doc):
+if units.is_metric(revit.doc):
     unit_sym = "Crop Offset [mm]"
     default_crop_offset = 350
 else:
@@ -55,7 +51,7 @@ else:
     default_crop_offset = 9.0
 
 # get units for Crop Offset variable
-if helper.is_metric(revit.doc):
+if units.is_metric(revit.doc):
     tb_offset = 165
 else:
     tb_offset = 4.2
@@ -95,8 +91,8 @@ if ok:
     chosen_vt_rcp_plan = viewplan_dict[form.values["vt_rcp_plans"]]
     chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
     chosen_tb = tblock_dict[form.values["tb"]]
-    chosen_crop_offset = helper.correct_input_units(form.values["crop_offset"])
-    titleblock_offset = helper.correct_input_units(form.values["titleblock_offset"])
+    chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
+    titleblock_offset = units.correct_input_units(form.values["titleblock_offset"])
     layout_ori = form.values["layout_orientation"]
     tb_ori = form.values["tb_orientation"]
     elev_rotate = form.values["el_rotation"]
@@ -117,14 +113,14 @@ for room in selection:
         viewRCP.Scale = view_scale
 
     # find crop box element (method with transactions, must be outside transaction)
-    crop_box_plan = helper.find_crop_box(viewplan)
-    crop_box_rcp = helper.find_crop_box(viewRCP)
+    crop_box_plan = geo.find_crop_box(viewplan)
+    crop_box_rcp = geo.find_crop_box(viewRCP)
 
     with revit.Transaction("Crop and Create Elevations", revit.doc):
         # rotate the view plan along the room's longest boundary
-        axis = helper.get_bb_axis_in_view(room, viewplan)
+        axis = geo.get_bb_axis_in_view(room, viewplan)
 
-        angle = helper.room_rotation_angle(room)
+        angle = geo.room_rotation_angle(room)
 
         rotated_plan = DB.ElementTransformUtils.RotateElement(
             revit.doc, crop_box_plan.Id, axis, angle
@@ -138,7 +134,7 @@ for room in selection:
         viewRCP.CropBoxActive = True
         revit.doc.Regenerate()
 
-        room_boundaries = helper.get_room_bound(room)
+        room_boundaries = geo.get_room_bound(room)
         if room_boundaries:
             # try offsetting boundaries (to include walls in plan view)
             try:
@@ -156,7 +152,7 @@ for room in selection:
                 # using a helper method, get the outlines of the room's bounding box,
                 # then rotate them with an already known angle (inverted)
                 rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room_location)
-                rotated_crop_loop = helper.get_aligned_crop(room.ClosedShell, rotation.Inverse)
+                rotated_crop_loop = geo.get_aligned_crop(room.ClosedShell, rotation.Inverse)
 
                 # offset the curve loop with given offset
                 # set the loop as Crop Shape of the view using CropRegionShapeManager
@@ -173,17 +169,17 @@ for room in selection:
                 + room.get_Parameter(DB.BuiltInParameter.ROOM_NAME).AsString()
         )
         viewplan_name = room_name_nr + " Plan"
-        while helper.get_view(viewplan_name):
+        while database.get_view(viewplan_name):
             viewplan_name = viewplan_name + " Copy 1"
         viewplan.Name = viewplan_name
-        helper.set_anno_crop(viewplan)
+        database.set_anno_crop(viewplan)
 
         # Rename Reflected Ceiling Plan
         RCP_name = room_name_nr + "Reflected Ceiling Plan"
-        while helper.get_view(RCP_name):
+        while database.get_view(RCP_name):
             RCP_name = RCP_name + " Copy 1"
         viewRCP.Name = RCP_name
-        helper.set_anno_crop(viewRCP)
+        database.set_anno_crop(viewRCP)
 
         # Create Elevations
         revit.doc.Regenerate()
@@ -198,12 +194,12 @@ for room in selection:
             elevation.Scale = view_scale
             # Rename elevations
             elevation_name = room_name_nr + " - Elevation " + elevation_count[i]
-            while helper.get_view(elevation_name):
+            while database.get_view(elevation_name):
                 elevation_name = elevation_name + " Copy 1"
 
             elevation.Name = elevation_name
             elevations_col.append(elevation)
-            helper.set_anno_crop(elevation)
+            database.set_anno_crop(elevation)
 
         # rotate marker
         revit.doc.Regenerate()
@@ -212,7 +208,7 @@ for room in selection:
         )
         rotated = new_marker.Location.Rotate(marker_axis, angle)
         revit.doc.Regenerate()
-        sheet = helper.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
+        sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
     
     # get positions on sheet
     loc = locator.Locator(sheet, titleblock_offset, tb_ori, layout_ori)
@@ -224,8 +220,8 @@ for room in selection:
     
     with revit.Transaction("Add Views to Sheet", revit.doc):
         # apply view template
-        helper.apply_vt(viewplan, chosen_vt_plan) 
-        helper.apply_vt(viewRCP, chosen_vt_rcp_plan) 
+        database.apply_vt(viewplan, chosen_vt_plan)
+        database.apply_vt(viewRCP, chosen_vt_rcp_plan)
 
         # place view on sheet
         place_plan = DB.Viewport.Create(revit.doc, sheet.Id, viewplan.Id, plan_position)
@@ -248,8 +244,8 @@ for room in selection:
             elevations.append(place_elevation)
             revit.doc.Regenerate()
             room_bb = room.get_BoundingBox(el)
-            helper.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
-            helper.apply_vt(el, chosen_vt_elevation)
+            geo.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
+            database.apply_vt(el, chosen_vt_elevation)
 
         revit.doc.Regenerate()
         
