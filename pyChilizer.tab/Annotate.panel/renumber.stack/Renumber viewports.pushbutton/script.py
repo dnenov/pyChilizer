@@ -64,7 +64,6 @@ try:
                     detail_number.Set("99")
                     cur_vp_param.Set(carry)
                     detail_number.Set(str(counter))
-                else 
 except:    
     pass
 
