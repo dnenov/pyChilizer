@@ -1,5 +1,4 @@
-from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
-from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
+from pyrevit import revit, DB, forms
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 from Autodesk.Revit import Exceptions
 import rpw

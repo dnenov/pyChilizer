@@ -1,20 +1,21 @@
 __title__ = "Room Elevations"
 __doc__ = "Creates elevation markers and rotates them to align with the room"
 
-from pyrevit import revit, DB, script, forms, HOST_APP
+from pyrevit import revit, DB, script, forms
 from rpw.ui.forms import FlexForm, Label, TextBox, Button,ComboBox, Separator
 from pychilizer import database, units, select, geo
+import sys
+
 
 output = script.get_output()
 logger = script.get_logger()
-bound_opt = DB.SpatialElementBoundaryOptions()
+
 # use preselected elements, filtering rooms only
 selection = select.select_rooms_filter()
 if not selection:
     forms.alert("You need to select at least one Room.", exitscript=True)
 
-
-# collect all view templates for plans and sections
+# collect all view templates sections
 viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection) # collect sections
 viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate} # only fetch the IsTemplate sections
 
@@ -44,11 +45,13 @@ components = [
 ]
 
 form = FlexForm("View Settings", components)
-form.show()
-# match the variables with user input
-chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
-chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
-
+ok = form.show()
+if ok:
+    # match the variables with user input
+    chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
+    chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
+else:
+    sys.exit()
 
 for room in selection:
     with revit.Transaction("Create Elevations", revit.doc):
