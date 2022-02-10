@@ -13,7 +13,6 @@ from pychilizer import units, select, geo, database
 output = script.get_output()
 logger = script.get_logger()    #helps to debug script, not used
 
-# use preselected elements, filtering rooms only
 selection = select.select_rooms_filter()
 if not selection:
     forms.alert("You need to select at least one Room.", exitscript=True)
@@ -36,10 +35,9 @@ tblock_orientation = ['Vertical', 'Horizontal']
 layout_orientation = ['Tiles', 'Cross']
 
 # collect and take the first view plan type, elevation type, set default scale
-col_view_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType().ToElements()
-floor_plan_type = [vt for vt in col_view_types if database.get_name(vt) == "Floor Plan"][0]
-ceiling_plan_type = [vt for vt in col_view_types if database.get_name(vt) == "Ceiling Plan"][0]
-elevation_type = [vt for vt in col_view_types if database.get_name(vt) in ["Interior Elevation", "Internal Elevation"]][0]
+floor_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan)[0]
+ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan)[0]
+elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
 view_scale = 50
 
 # get units for Crop Offset variable

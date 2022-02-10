@@ -1,5 +1,5 @@
 title: "Room Elevations +"
 tooltip: |
-  For complex room shapes, specify the edges to place elevations or sections. For one room at a time.
+  For complex room shapes, specify the edges to place sections parallel to room boundaries.
 
   Author: Daria Ivanciucova

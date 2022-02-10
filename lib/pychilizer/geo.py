@@ -96,7 +96,7 @@ def get_room_bound(r):
         # try:
         room_boundaries.Append(curve)
         # except Exceptions.ArgumentException:
-        #     print (curve)
+            # print (curve)
     return room_boundaries
 
 
@@ -219,4 +219,33 @@ def get_aligned_crop(geo, transform):
     crop_loop = DB.CurveLoop.Create(List[DB.Curve](rotate_curves_back))
 
     return crop_loop
+
+
+def get_unique_borders(borders, tol):
+    # sort the borders discarding overlapping ones (lying on same axis)
+    axis_set = []
+    sorted_lines = []
+    for curve in borders:
+        deriv = curve.ComputeDerivatives(0.5, True)
+        tangent = deriv.BasisX
+        pt = curve.Evaluate(0.5, True)
+        axis = DB.Line.CreateUnbound(pt, tangent)
+        on_axis = False
+        if not axis_set:
+            axis_set.append(axis)
+            sorted_lines.append(curve)
+        for line in axis_set:
+            distance = line.Distance(pt)
+            # print (distance)
+            if distance <= tol:
+                on_axis = True
+        if not on_axis:
+            axis_set.append(axis)
+            sorted_lines.append(curve)
+    return sorted_lines
+
+
+def discard_short(curves, threshold=600/304.8):
+    return [curve for curve in curves if curve.Length > threshold]
+
 

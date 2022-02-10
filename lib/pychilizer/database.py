@@ -74,3 +74,59 @@ def apply_vt(v, vt):
 
 def get_name(el):
     return DB.Element.Name.__get__(el)
+
+
+def create_parallel_bbox(line, crop_elem, offset=300/304.8):
+    # create section parallel to x (solution by Building Coder)
+    p = line.GetEndPoint(0)
+    q = line.GetEndPoint(1)
+    v = q - p
+
+    # section box width
+    w = v.GetLength()
+    bb = crop_elem.get_BoundingBox(None)
+    minZ = bb.Min.Z
+    maxZ = bb.Max.Z
+    # height = maxZ - minZ
+
+    min = DB.XYZ(-w, minZ - offset, -offset)
+    max = DB.XYZ(w, maxZ + offset, offset)
+
+    centerpoint = p + 0.5 * v
+    direction = v.Normalize()
+    up = DB.XYZ.BasisZ
+    view_direction = direction.CrossProduct(up)
+
+    t = DB.Transform.Identity
+    t.Origin = centerpoint
+    t.BasisX = direction
+    t.BasisY = up
+    t.BasisZ = view_direction
+
+    section_box = DB.BoundingBoxXYZ()
+    section_box.Transform = t
+    section_box.Min = min
+    section_box.Max = max
+
+    pt = DB.XYZ(centerpoint.X, centerpoint.Y, minZ)
+    point_in_front = pt+(-3)*view_direction
+    #TODO: check other usage
+    return section_box
+
+
+def char_series(nr):
+    from string import ascii_uppercase
+    series = []
+    for i in range(0,nr):
+        series.append(ascii_uppercase[i])
+    return series
+
+
+def char_i(i):
+    from string import ascii_uppercase
+    return ascii_uppercase[i]
+
+
+def get_view_family_types(viewtype, doc=revit.doc):
+    return [vt for vt in DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType) if
+                vt.ViewFamily == viewtype]

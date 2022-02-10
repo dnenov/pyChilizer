@@ -24,7 +24,7 @@ viewsection_dict["<None>"] = None
 
 
 # collect and take the first elevation type, set default scale
-elevation_type = [vt for vt in DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType) if database.get_name(vt) in ["Interior Elevation", "Internal Elevation"]][0]
+elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
 view_scale = 50
 viewplan = revit.active_view
 # get units for Crop Offset variable
