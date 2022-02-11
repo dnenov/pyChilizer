@@ -143,6 +143,14 @@ for room in selection:
             view_orientation = DB.ViewOrientation3D(eye, up, fwd)
             threeD.SetOrientation(view_orientation)
 
+            #try to crop
+            revit.doc.Regenerate()
+            # bbox_in_view = sb.GetBoundingBox()
+            threeD.CropBox = new_bb
+            threeD.CropBoxActive = True
+
+
+
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
     crop_box_rcp = geo.find_crop_box(viewRCP)
@@ -299,5 +307,6 @@ for room in selection:
         loc.realign_pos(revit.doc, [place_plan], [plan_position])
         loc.realign_pos(revit.doc, [place_RCP], [RCP_position])
         loc.realign_pos(revit.doc, elevations, elevations_positions)
+        loc.realign_pos(revit.doc, [place_threeD], [threeD_position])
 
         print("Sheet : {0} \t Room {1} ".format(output.linkify(sheet.Id), room_name_nr))
