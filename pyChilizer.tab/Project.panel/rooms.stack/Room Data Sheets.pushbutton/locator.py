@@ -4,6 +4,7 @@ from itertools import izip
 class Locator:    
     plan = DB.XYZ() # class variable - plan location
     rcp = DB.XYZ()  # class variable - rcp location
+    threeD = DB.XYZ() # class variable - 3D location
     elevations = [] # class variable - elevation location
 
     '''Constructor'''
@@ -24,10 +25,12 @@ class Locator:
             self.plan = (pos[4] + pos[6])/2
             self.rcp = (pos[5] + pos[7])/2
             self.elevations = [pos[0], pos[1], pos[2], pos[3]]
+
         elif layout == 'Cross':            
             self.plan = pos[4]
             self.rcp = pos[10]
             self.elevations = [pos[1], pos[5], pos[7], pos[3]]
+            self.threeD = pos[11]
 
     '''get positions based on the layout
     pass num columns and rows'''

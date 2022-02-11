@@ -38,6 +38,8 @@ layout_orientation = ['Tiles', 'Cross']
 floor_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan)[0]
 ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan)[0]
 elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
+threeD_type = database.get_view_family_types(DB.ViewFamily.ThreeDimensional)[0]
+
 view_scale = 50
 
 # get units for Crop Offset variable
@@ -110,6 +112,37 @@ for room in selection:
         viewRCP = DB.ViewPlan.Create(revit.doc, ceiling_plan_type.Id, level.Id)
         viewRCP.Scale = view_scale
 
+        if layout_ori == "Cross":
+            # create 3D axo
+            threeD = DB.View3D.CreateIsometric(revit.doc, threeD_type.Id)
+            threeD.Scale = view_scale
+
+            # 1. rotate room geometry
+            room_shell = room.ClosedShell
+            angle = geo.room_rotation_angle(room)
+            rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, -angle, room.Location.Point)
+            rotated_shell = room_shell.GetTransformed(rotation)
+
+            # 2. get the bbox of the rotated shell
+            shell_bb = rotated_shell.GetBoundingBox()
+            rotate_back = rotation.Inverse
+
+            # rotate the bbox back
+            new_bb = DB.BoundingBoxXYZ()
+            new_bb.Transform = rotate_back
+            new_bb.Min = shell_bb.Min
+            new_bb.Max = shell_bb.Max
+            # set bbox as section box
+            sb = threeD.SetSectionBox(new_bb)
+
+            # set orientation
+            eye = DB.XYZ(0, 0, 0)
+            up = DB.XYZ(-1, 1, 2)
+            fwd = DB.XYZ(-1, 1, -1)
+
+            view_orientation = DB.ViewOrientation3D(eye, up, fwd)
+            threeD.SetOrientation(view_orientation)
+
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
     crop_box_rcp = geo.find_crop_box(viewRCP)
@@ -166,6 +199,7 @@ for room in selection:
                 + " - "
                 + room.get_Parameter(DB.BuiltInParameter.ROOM_NAME).AsString()
         )
+        # rename view plan
         viewplan_name = room_name_nr + " Plan"
         while database.get_view(viewplan_name):
             viewplan_name = viewplan_name + " Copy 1"
@@ -178,6 +212,14 @@ for room in selection:
             RCP_name = RCP_name + " Copy 1"
         viewRCP.Name = RCP_name
         database.set_anno_crop(viewRCP)
+
+        if layout_ori == "Cross":
+            # rename 3D
+            threeD_name = room_name_nr + " 3D View"
+            while database.get_view(threeD_name):
+                threeD_name = threeD_name + " Copy 1"
+            threeD.Name = threeD_name
+
 
         # Create Elevations
         revit.doc.Regenerate()
@@ -207,12 +249,16 @@ for room in selection:
         rotated = new_marker.Location.Rotate(marker_axis, angle)
         revit.doc.Regenerate()
         sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
-    
+
+
+
+
     # get positions on sheet
     loc = locator.Locator(sheet, titleblock_offset, tb_ori, layout_ori)
     plan_position = loc.plan
     RCP_position = loc.rcp
     elevations_positions = loc.elevations 
+    threeD_position = loc.threeD
 
     elevations = [] # collect all elevations we create
     
@@ -224,7 +270,9 @@ for room in selection:
         # place view on sheet
         place_plan = DB.Viewport.Create(revit.doc, sheet.Id, viewplan.Id, plan_position)
         place_RCP = DB.Viewport.Create(revit.doc, sheet.Id, viewRCP.Id, RCP_position)
-        
+        if layout_ori == "Cross":
+            place_threeD = DB.Viewport.Create(revit.doc, sheet.Id, threeD.Id, threeD_position)
+
         for el, pos, i in izip(elevations_col, elevations_positions, elevation_count):
             # place elevations
             place_elevation = DB.Viewport.Create(revit.doc, sheet.Id, el.Id, pos)
