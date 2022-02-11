@@ -5,10 +5,13 @@ __doc__ = "Creates room plans and elevations and places them on a sheet. Assign 
 
 from pyrevit import revit, DB, script, forms, HOST_APP
 from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, CheckBox, Separator
-import locator
+import locator, ui
 from itertools import izip
 import sys
 from pychilizer import units, select, geo, database
+
+ui = ui.UI(script)
+ui.is_metric = units.is_metric
 
 output = script.get_output()
 logger = script.get_logger()    #helps to debug script, not used
@@ -19,20 +22,22 @@ if not selection:
 
 # collect all view templates for plans and sections
 viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection) # collect sections
-viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate} # only fetch the IsTemplate sections
+ui.viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate} # only fetch the IsTemplate sections
 
 viewplans = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewPlan) # collect plans
-viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate} # only fetch IsTemplate plans
+ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate} # only fetch IsTemplate plans
 
 # add none as an option
-viewplan_dict["<None>"] = None
-viewsection_dict["<None>"] = None
+ui.viewsection_dict["<None>"] = None
+ui.viewplan_dict["<None>"] = None
+
+ui.set_viewtemplates()
 
 # collect titleblocks in a dictionary
 titleblocks = DB.FilteredElementCollector(revit.doc).OfCategory(DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
-tblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
-tblock_orientation = ['Vertical', 'Horizontal']
-layout_orientation = ['Tiles', 'Cross']
+ui.titleblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
+ui.set_titleblocks()
+
 
 # collect and take the first view plan type, elevation type, set default scale
 floor_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan)[0]
@@ -45,38 +50,30 @@ view_scale = 50
 # get units for Crop Offset variable
 if units.is_metric(revit.doc):
     unit_sym = "Crop Offset [mm]"
-    default_crop_offset = 350
 else:
     unit_sym = "Crop Offset [decimal inches]"
-    default_crop_offset = 9.0
-
-# get units for Crop Offset variable
-if units.is_metric(revit.doc):
-    tb_offset = 165
-else:
-    tb_offset = 4.2
 
 components = [
     Label ("Select Titleblock"),
-    ComboBox(name="tb", options=sorted(tblock_dict)),
+    ComboBox(name="tb", options=sorted(ui.titleblock_dict), default=ui.titleblock),
     Label("Sheet Number"),
-    TextBox("sheet_number", Text="1000"),
+    TextBox("sheet_number", Text=ui.sheet_number),
     Label(unit_sym),
-    TextBox("crop_offset", Text=str(default_crop_offset)),
+    TextBox("crop_offset", Text=str(ui.crop_offset)),
     Label("Titleblock (internal) offset"),
-    TextBox("titleblock_offset", Text=str(tb_offset)),
+    TextBox("titleblock_offset", Text=str(ui.titleblock_offset)),
     Label("Layout orientation"),
-    ComboBox(name="layout_orientation", options=layout_orientation, default="Tiles"),
-    CheckBox("el_rotation", 'Rotate elevations', default=False),
+    ComboBox(name="layout_orientation", options=ui.layout_orientation, default=ui.layout_ori),
+    CheckBox("el_rotation", 'Rotate elevations', default=ui.rotated_elevations),
     Label("Titleblock orientation"),
-    ComboBox(name="tb_orientation", options=tblock_orientation, default="Vertical"),
+    ComboBox(name="tb_orientation", options=ui.tblock_orientation, default=ui.titleblock_orientation),
     Separator(),
     Label("View Template for Plans"),
-    ComboBox(name="vt_plans", options=sorted(viewplan_dict), default="<None>"),
+    ComboBox(name="vt_plans", options=sorted(ui.viewplan_dict), default=ui.viewplan),
     Label("View Template for Reflected Ceiling Plans"),
-    ComboBox(name="vt_rcp_plans", options=sorted(viewplan_dict), default="<None>"),
+    ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict), default=ui.viewceiling),
     Label("View Template for Elevations"),
-    ComboBox(name="vt_elevs", options=sorted(viewsection_dict), default="<None>"),
+    ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=ui.viewsection),
     Separator(),
     Button("Select"),
 ]
@@ -87,10 +84,10 @@ ok = form.show()
 if ok:
     # match the variables with user input
     chosen_sheet_nr = form.values["sheet_number"]
-    chosen_vt_plan = viewplan_dict[form.values["vt_plans"]]
-    chosen_vt_rcp_plan = viewplan_dict[form.values["vt_rcp_plans"]]
-    chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
-    chosen_tb = tblock_dict[form.values["tb"]]
+    chosen_vt_plan = ui.viewplan_dict[form.values["vt_plans"]]
+    chosen_vt_rcp_plan = ui.viewplan_dict[form.values["vt_rcp_plans"]]
+    chosen_vt_elevation = ui.viewsection_dict[form.values["vt_elevs"]]
+    chosen_tb = ui.titleblock_dict[form.values["tb"]]
     chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
     titleblock_offset = units.correct_input_units(form.values["titleblock_offset"])
     layout_ori = form.values["layout_orientation"]
@@ -98,6 +95,17 @@ if ok:
     elev_rotate = form.values["el_rotation"]
 else:
     sys.exit()
+
+ui.set_config("sheet_number", chosen_sheet_nr)
+ui.set_config("crop_offset", form.values["crop_offset"])
+ui.set_config("titleblock_offset", form.values["titleblock_offset"])
+ui.set_config("titleblock_orientation", tb_ori)
+ui.set_config("layout_orientation", layout_ori)
+ui.set_config("rotated_elevations", elev_rotate)
+ui.set_config("titleblock", form.values["tb"])
+ui.set_config("viewplan", form.values["vt_plans"])
+ui.set_config("viewceiling", form.values["vt_rcp_plans"])
+ui.set_config("viewsection", form.values["vt_elevs"])
 
 for room in selection:
     with revit.Transaction("Create Plan", revit.doc):
@@ -143,11 +151,11 @@ for room in selection:
             view_orientation = DB.ViewOrientation3D(eye, up, fwd)
             threeD.SetOrientation(view_orientation)
 
-            #try to crop
-            revit.doc.Regenerate()
             # bbox_in_view = sb.GetBoundingBox()
             threeD.CropBox = new_bb
             threeD.CropBoxActive = True
+            #try to crop
+            revit.doc.Regenerate()
 
 
 
@@ -307,6 +315,7 @@ for room in selection:
         loc.realign_pos(revit.doc, [place_plan], [plan_position])
         loc.realign_pos(revit.doc, [place_RCP], [RCP_position])
         loc.realign_pos(revit.doc, elevations, elevations_positions)
-        loc.realign_pos(revit.doc, [place_threeD], [threeD_position])
+        if layout_ori == "Cross":
+            loc.realign_pos(revit.doc, [place_threeD], [threeD_position])
 
         print("Sheet : {0} \t Room {1} ".format(output.linkify(sheet.Id), room_name_nr))
