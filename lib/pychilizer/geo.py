@@ -55,6 +55,57 @@ def find_crop_box(view):
                 print("CROP NOT FOUND")
                 return None
 
+'''Create a new cropbox for a 3D view based on a Section Box
+Won't run if no Section Box is active'''
+def crop_axo(view3d):
+    if view3d.IsSectionBoxActive == False: return
+
+    if view3d.CropBoxActive == False:
+        view3d.CropBoxActive = True
+    
+    crop_box = view3d.CropBox   # get the crop box of the view (bounding box)
+    section_box = view3d.GetSectionBox()    # get the section box (bounding box)
+    trans = crop_box.Transform  # get the view crop box Transform, will be used to convert from World Coordinates to View Coordinates
+    corners = bb_corners(section_box, trans)    # get the actual corners of the section box in View Coordinates
+
+    minX = min(corners, key=lambda x: x.X).X    
+    minY = min(corners, key=lambda x: x.Y).Y
+    minZ = min(corners, key=lambda x: x.Z).Z
+    maxX = max(corners, key=lambda x: x.X).X
+    maxY = max(corners, key=lambda x: x.Y).Y
+    maxZ = max(corners, key=lambda x: x.Z).Z
+
+    # offset by 1/10 of the crop box outword
+    d = 0.05 * (maxX - minX)
+    minX = minX - d
+    maxX = maxX + d
+
+    d = 0.05 * (maxY - minY)
+    minY = minY - d
+    maxY = maxY + d
+
+    # finally, create and assign the new crop box
+    crop_box.Min = DB.XYZ(minX, minY, minZ)
+    crop_box.Max = DB.XYZ(maxX, maxY, maxZ)
+
+    view3d.CropBox = crop_box
+
+'''A helper method to calculate the actual Section Box corners from World to View Coordinates'''
+def bb_corners(box, transform):
+    b_ll = box.Min    #lower left
+    b_lr = DB.XYZ(box.Max.X, box.Min.Y, box.Min.Z) # lower right
+    b_ul = DB.XYZ(box.Min.X, box.Max.Y, box.Min.Z) # upper left
+    b_ur = DB.XYZ(box.Max.X, box.Max.Y, box.Min.Z) # upper right
+    t_ur = box.Max # upper right
+    t_ul = DB.XYZ(box.Min.X, box.Max.Y, box.Max.Z) # upper left
+    t_lr = DB.XYZ(box.Max.X, box.Min.Y, box.Max.Z) # lower right
+    t_ll = DB.XYZ(box.Min.X, box.Min.Y, box.Max.Z) # lower left
+    out = [b_ll, b_lr, b_ul, b_ur, t_ur, t_ul, t_lr, t_ll]
+    for index, o in enumerate(out):
+        out[index] = box.Transform.OfPoint(out[index])
+        out[index] = transform.Inverse.OfPoint(out[index])
+    return out
+    
 
 def point_equal_list(pt, lst):
     for el in list(lst):

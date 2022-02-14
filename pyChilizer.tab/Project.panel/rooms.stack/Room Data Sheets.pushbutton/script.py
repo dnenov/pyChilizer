@@ -140,6 +140,7 @@ for room in selection:
             new_bb.Transform = rotate_back
             new_bb.Min = shell_bb.Min
             new_bb.Max = shell_bb.Max
+
             # set bbox as section box
             sb = threeD.SetSectionBox(new_bb)
 
@@ -150,14 +151,12 @@ for room in selection:
 
             view_orientation = DB.ViewOrientation3D(eye, up, fwd)
             threeD.SetOrientation(view_orientation)
-
-            # bbox_in_view = sb.GetBoundingBox()
-            threeD.CropBox = new_bb
             threeD.CropBoxActive = True
-            #try to crop
             revit.doc.Regenerate()
 
-
+    # crop the Axo
+    with revit.Transaction("Crop the Axo", revit.doc):
+        geo.crop_axo(threeD)
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
