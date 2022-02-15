@@ -1,12 +1,6 @@
-__title__ = "Room to Generic Model"
-__doc__ = "Transforms rooms into Generic Model families and places them in same place. " \
-          "\n\nShift+Click: Choose between Extrusion and Freeform" \
-          "\nExtrusion will create a flat and editable shape based on the room boundaries and height." \
-          "\nFreeForm will reproduce the room's shape (for example, cut by a pitched roof)"
-
 from pyrevit import revit, DB, script, forms, HOST_APP
 import tempfile
-import helper
+from pychilizer import geo, select, database
 import re
 import config
 from Autodesk.Revit import Exceptions
@@ -14,24 +8,19 @@ from Autodesk.Revit import Exceptions
 logger = script.get_logger()
 output = script.get_output()
 
-# use preselected elements, filtering rooms only
-pre_selection = helper.preselection_with_filter(DB.BuiltInCategory.OST_Rooms)
-# or select rooms
-if pre_selection and forms.alert("You have selected {} elements. Do you want to use them?".format(len(pre_selection))):
-    selection = pre_selection
-else:
-    selection = helper.select_rooms_filter()
+selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms to Transform")
 
 if selection:
     # Create family doc from template
-    fam_template_path = __revit__.Application.FamilyTemplatePath + "\Metric Generic Model.rft"
+    fam_temp_path = database.get_generic_template_path()
+    # fam_template_path = __revit__.Application.FamilyTemplatePath + "\Metric Generic Model.rft"
 
     # iterate through rooms
     for room in selection:
 
         # define new family doc
         try:
-            new_family_doc = revit.doc.Application.NewFamilyDocument(fam_template_path)
+            new_family_doc = revit.doc.Application.NewFamilyDocument(fam_temp_path)
         except NameError:
             forms.alert(msg="No Template",
                         sub_msg="There is no Generic Model Template in the default location.",
@@ -55,7 +44,7 @@ if selection:
         fam_type_name = re.sub(r'[^\w\-_\. ]', '', room_name)
 
         # check if family already exists:
-        while helper.get_fam(fam_name):
+        while database.get_fam(fam_name):
             fam_name = fam_name + "_Copy 1"
 
         # Save family in temp folder
@@ -72,10 +61,10 @@ if selection:
         # Create extrusion from room boundaries
         with revit.Transaction(doc=new_family_doc, name="Create Extrusion"):
             if config.get_config() == "Extrusion":
-                helper.room_to_extrusion(room, new_family_doc)
+                geo.room_to_extrusion(room, new_family_doc)
                 placement_point = room.Location.Point
             else:
-                helper.room_to_freeform(room, new_family_doc)
+                geo.room_to_freeform(room, new_family_doc)
                 placement_point = room.get_BoundingBox(None).Min
         # save and close family
         save_opt = DB.SaveOptions()
@@ -86,7 +75,7 @@ if selection:
         with revit.Transaction("Load Family", revit.doc):
             loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
             # find family symbol and activate
-            fam_symbol = helper.get_fam(fam_name)
+            fam_symbol = database.get_fam(fam_name)
             if not fam_symbol.IsActive:
                 fam_symbol.Activate()
                 revit.doc.Regenerate()

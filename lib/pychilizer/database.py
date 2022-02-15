@@ -46,7 +46,7 @@ def param_set_by_cat(cat):
     return parameter_set
 
 
-# 0001
+
 def create_sheet(sheet_num, sheet_name, titleblock):
     sheet_num = str(sheet_num)
 
@@ -130,3 +130,16 @@ def char_i(i):
 def get_view_family_types(viewtype, doc=revit.doc):
     return [vt for vt in DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType) if
                 vt.ViewFamily == viewtype]
+
+
+def get_generic_template_path():
+    fam_template_path = __revit__.Application.FamilyTemplatePath + "\Metric Generic Model.rft"
+    from os.path import isfile
+    if isfile(fam_template_path):
+        return fam_template_path
+    else:
+        forms.alert(title="No Generic Template Found", msg="There is no Generic Model Template in the default location. Can you point where to get it?", ok=True)
+        fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
+        return fam_template_path
+
+# def remember_config():

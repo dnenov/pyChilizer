@@ -1,9 +1,10 @@
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 import math
 from pyrevit.framework import List
+from Autodesk.Revit import Exceptions
 
 
-def inverted_transform(element, view):
+def inverted_transform(element, view=revit.active_view):
     # get element location and return its inverted transform
     # can be used to translate geometry to 0,0,0 origin to recreate geometry inside a family
     el_location = element.Location.Point
@@ -300,3 +301,53 @@ def discard_short(curves, threshold=600/304.8):
     return [curve for curve in curves if curve.Length > threshold]
 
 
+def room_to_freeform(r, family_doc):
+    room_geo = r.ClosedShell
+    for geo in room_geo:
+        if isinstance(geo, DB.Solid) and geo.Volume > 0.0:
+            freeform = DB.FreeFormElement.Create(family_doc, geo)
+            family_doc.Regenerate()
+            delta = DB.XYZ(0, 0, 0) - freeform.get_BoundingBox(None).Min
+            move_ff = DB.ElementTransformUtils.MoveElement(
+                family_doc, freeform.Id, delta
+            )
+            # create and associate a material parameter
+            ext_mat_param = freeform.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
+            new_mat_param = family_doc.FamilyManager.AddParameter("Material",
+                                                                  DB.BuiltInParameterGroup.PG_MATERIALS,
+                                                                  DB.ParameterType.Material,
+                                                                  True)
+            family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
+                                                                                new_mat_param)
+    return freeform
+
+
+def room_to_extrusion(r, family_doc):
+    output = script.get_output()
+    room_height = r.get_Parameter(DB.BuiltInParameter.ROOM_HEIGHT).AsDouble()
+    # helper: define inverted transform to translate room geometry to origin
+    geo_translation = inverted_transform(r)
+    # collect room boundaries and translate them to origin
+    room_boundaries = room_bound_to_origin(r, geo_translation)
+    # skip if the boundaries are not a closed loop (can happen with misaligned boundaries)
+    if not room_boundaries:
+        print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
+        return
+
+    ref_plane = get_ref_lvl_plane(family_doc)
+    # create extrusion, assign material, associate with shared parameter
+    try:
+        extrusion = family_doc.FamilyCreate.NewExtrusion(True, room_boundaries, ref_plane[0],
+                                                         room_height)
+        ext_mat_param = extrusion.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
+        # create and associate a material parameter
+        new_mat_param = family_doc.FamilyManager.AddParameter("Material",
+                                                              DB.BuiltInParameterGroup.PG_MATERIALS,
+                                                              DB.ParameterType.Material,
+                                                              False)
+        family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
+                                                                            new_mat_param)
+        return extrusion
+    except Exceptions.InternalException:
+        print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
+        return

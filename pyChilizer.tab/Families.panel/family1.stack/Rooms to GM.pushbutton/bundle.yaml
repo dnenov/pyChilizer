@@ -1,7 +1,10 @@
 title: "Room to GM"
 tooltip: >+
-  Transforms rooms into Generic Model families and places them in same place. The shape of the family is 
-  based on the room boundaries and room height. 
+  Transforms rooms into Generic Model families and places them in same place.
+            Shift+Click: Choose between Extrusion and Freeform
+            Extrusion will create a flat and editable shape based on the room boundaries and height.
+            FreeForm will reproduce the room's shape (for example, cut by a pitched roof)
+
 
 
   Author: Daria Ivanciucova

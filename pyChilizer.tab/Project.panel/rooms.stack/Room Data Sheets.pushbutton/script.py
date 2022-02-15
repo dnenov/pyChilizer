@@ -16,9 +16,7 @@ ui.is_metric = units.is_metric
 output = script.get_output()
 logger = script.get_logger()    #helps to debug script, not used
 
-selection = select.select_rooms_filter()
-if not selection:
-    forms.alert("You need to select at least one Room.", exitscript=True)
+selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Data Sheets")
 
 # collect all view templates for plans and sections
 viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection) # collect sections
@@ -154,9 +152,10 @@ for room in selection:
             threeD.CropBoxActive = True
             revit.doc.Regenerate()
 
-    # crop the Axo
-    with revit.Transaction("Crop the Axo", revit.doc):
-        geo.crop_axo(threeD)
+    if layout_ori == "Cross":
+        # crop the Axo
+        with revit.Transaction("Crop the Axo", revit.doc):
+            geo.crop_axo(threeD)
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)

@@ -8,47 +8,6 @@ from pyrevit.revit.db import query
 import re
 
 
-# selection filter for rooms
-class RoomsFilter(ISelectionFilter):
-    def AllowElement(self, elem):
-        try:
-            if elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_Rooms):
-                return True
-            else:
-                return False
-        except AttributeError:
-            return False
-
-    def AllowReference(self, reference, position):
-        try:
-            if isinstance(revit.doc.GetElement(reference), DB.Room):
-                return True
-            else:
-                return False
-        except AttributeError:
-            return False
-
-
-def select_rooms_filter():
-    # select elements while applying category filter
-    try:
-        with forms.WarningBar(title="Pick Rooms to transform"):
-            selection = [revit.doc.GetElement(reference) for reference in rpw.revit.uidoc.Selection.PickObjects(
-                ObjectType.Element, RoomsFilter())]
-            return selection
-    except Exceptions.OperationCanceledException:
-        forms.alert("Cancelled", ok=True, warn_icon=False)
-
-
-def preselection_with_filter(bic):
-    # use pre-selection of elements, but filter them by given category name
-    pre_selection = []
-    for id in rpw.revit.uidoc.Selection.GetElementIds():
-        sel_el = revit.doc.GetElement(id)
-        if sel_el.Category.Id.IntegerValue == int(bic):
-            pre_selection.append(sel_el)
-    return pre_selection
-
 
 def inverted_transform(element):
     # get element location and return its inverted transform
@@ -160,52 +119,3 @@ def get_fam(family_name):
     return collector
 
 
-def room_to_freeform(r, family_doc):
-    room_geo = r.ClosedShell
-    for geo in room_geo:
-        if isinstance(geo, DB.Solid) and geo.Volume > 0.0:
-            freeform = DB.FreeFormElement.Create(family_doc, geo)
-            family_doc.Regenerate()
-            delta = DB.XYZ(0, 0, 0) - freeform.get_BoundingBox(None).Min
-            move_ff = DB.ElementTransformUtils.MoveElement(
-                family_doc, freeform.Id, delta
-            )
-            # create and associate a material parameter
-            ext_mat_param = freeform.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
-            new_mat_param = family_doc.FamilyManager.AddParameter("Material",
-                                                                  DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                                  DB.ParameterType.Material,
-                                                                  True)
-            family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
-                                                                                new_mat_param)
-    return freeform
-
-
-def room_to_extrusion(r, family_doc):
-    room_height = r.get_Parameter(DB.BuiltInParameter.ROOM_HEIGHT).AsDouble()
-    # helper: define inverted transform to translate room geometry to origin
-    geo_translation = inverted_transform(r)
-    # collect room boundaries and translate them to origin
-    room_boundaries = room_bound_to_origin(r, geo_translation)
-    # skip if the boundaries are not a closed loop (can happen with misaligned boundaries)
-    if not room_boundaries:
-        print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
-        return
-
-    ref_plane = get_ref_lvl_plane(family_doc)
-    # create extrusion, assign material, associate with shared parameter
-    try:
-        extrusion = family_doc.FamilyCreate.NewExtrusion(True, room_boundaries, ref_plane[0],
-                                                         room_height)
-        ext_mat_param = extrusion.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
-        # create and associate a material parameter
-        new_mat_param = family_doc.FamilyManager.AddParameter("Material",
-                                                              DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                              DB.ParameterType.Material,
-                                                              False)
-        family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
-                                                                            new_mat_param)
-        return extrusion
-    except Exceptions.InternalException:
-        print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
-        return
