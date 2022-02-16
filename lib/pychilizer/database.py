@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 from pyrevit.revit.db import query
 
@@ -23,14 +25,18 @@ def get_view(some_name):
     return found_view
 
 
-def get_fam(some_name):
-    fam_name_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
-    found_fam = DB.FilteredElementCollector(revit.doc) \
-        .OfCategory(DB.BuiltInCategory.OST_GenericModel) \
-        .WherePasses(fam_name_filter) \
-        .WhereElementIsNotElementType().ToElements()
+def get_fam(family_name):
+    fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
+    fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
+    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
-    return found_fam
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(fam_filter) \
+        .WhereElementIsElementType() \
+        .FirstElement()
+
+    return collector
 
 
 def param_set_by_cat(cat):
@@ -133,13 +139,60 @@ def get_view_family_types(viewtype, doc=revit.doc):
 
 
 def get_generic_template_path():
-    fam_template_path = __revit__.Application.FamilyTemplatePath + "\Metric Generic Model.rft"
+    fam_template_folder = __revit__.Application.FamilyTemplatePath
+
+    ENG = "\Metric Generic Model.rft"
+    FRA = "\Modèle générique métrique.rft"
+    GER = "\Allgemeines Modell.rft"
+    ESP = "\Modelo genérico métrico.rft"
+    RUS = "\Метрическая система, типовая модель.rft"
+
+    if ("French") in fam_template_folder:
+        generic_temp_name = FRA
+    elif ("Spanish") in fam_template_folder:
+        generic_temp_name = ESP
+    elif ("German") in fam_template_folder:
+        generic_temp_name = GER
+    elif ("Russian") in fam_template_folder:
+        generic_temp_name = RUS
+    else:
+        generic_temp_name = ENG
+
+    gen_template_path = fam_template_folder + generic_temp_name
     from os.path import isfile
-    if isfile(fam_template_path):
-        return fam_template_path
+    if isfile(gen_template_path):
+        return gen_template_path
     else:
         forms.alert(title="No Generic Template Found", msg="There is no Generic Model Template in the default location. Can you point where to get it?", ok=True)
         fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
         return fam_template_path
 
-# def remember_config():
+
+def get_mass_template_path():
+    fam_template_folder = __revit__.Application.FamilyTemplatePath
+
+    ENG = "\Conceptual Mass\Metric Mass.rft"
+    FRA = "\Volume conceptuel\Volume métrique.rft"
+    GER = "\Entwurfskörper\Entwurfskörper.rft"
+    ESP = "\Masas conceptuales\Masa métrica.rft"
+    RUS = "\Концептуальные формы\Метрическая система, формообразующий элемент.rft"
+
+    if ("French") in fam_template_folder:
+        mass_temp_name = FRA
+    elif ("Spanish") in fam_template_folder:
+        mass_temp_name = ESP
+    elif ("German") in fam_template_folder:
+        mass_temp_name = GER
+    elif ("Russian") in fam_template_folder:
+        mass_temp_name = RUS
+    else:
+        mass_temp_name = ENG
+
+    mass_template_path = fam_template_folder + mass_temp_name
+    from os.path import isfile
+    if isfile(mass_template_path):
+        return mass_template_path
+    else:
+        forms.alert(title="No Mass Template Found", msg="There is no Mass Model Template in the default location. Can you point where to get it?", ok=True)
+        fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
+        return fam_template_path

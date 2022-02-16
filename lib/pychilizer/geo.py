@@ -34,7 +34,8 @@ def room_bound_to_origin(room, translation):
 def get_ref_lvl_plane(family_doc):
     # from given family doc, return Ref. Level reference plane
     find_planes = DB.FilteredElementCollector(family_doc).OfClass(DB.SketchPlane)
-    return [plane for plane in find_planes if plane.Name == "Ref. Level"]
+    ref_level = DB.FilteredElementCollector(family_doc).OfClass(DB.Level).WhereElementIsNotElementType().FirstElement()
+    return [plane for plane in find_planes if plane.Name == ref_level.Name]
 
 
 def find_crop_box(view):

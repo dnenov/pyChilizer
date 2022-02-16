@@ -1,4 +1,4 @@
-from pyrevit import revit, DB, script, forms, HOST_APP
+from pyrevit import revit, DB, script, forms
 import tempfile
 from pychilizer import geo, select, database
 import re
@@ -13,7 +13,6 @@ selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Ro
 if selection:
     # Create family doc from template
     fam_temp_path = database.get_generic_template_path()
-    # fam_template_path = __revit__.Application.FamilyTemplatePath + "\Metric Generic Model.rft"
 
     # iterate through rooms
     for room in selection:
