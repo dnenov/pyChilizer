@@ -196,3 +196,29 @@ def get_mass_template_path():
         forms.alert(title="No Mass Template Found", msg="There is no Mass Model Template in the default location. Can you point where to get it?", ok=True)
         fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
         return fam_template_path
+
+
+def vt_name_match(vt_name):
+    # return a view template with a given name, None if not found
+    views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View)
+    vt_match = None
+    for v in views:
+        if v.IsTemplate and v.Name == vt_name:
+            vt_match = v.Name
+    return vt_match
+
+
+def tb_name_match(tb_name):
+    titleblocks = DB.FilteredElementCollector(revit.doc).OfCategory(
+        DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
+    tb_match = None
+    for tb in titleblocks:
+        if revit.query.get_name(tb) == tb_name:
+            tb_match = revit.query.get_name(tb)
+    return tb_match
+
+def unique_view_name(name, suffix=None):
+    unique_v_name = name + suffix
+    while get_view(unique_v_name):
+        unique_v_name = unique_v_name + " Copy 1"
+    return unique_v_name

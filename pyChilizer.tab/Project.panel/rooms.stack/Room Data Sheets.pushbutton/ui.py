@@ -15,6 +15,7 @@ class UI:
         self.titleblock_orientation = self.config.get_option('titleblock_orientation', self.tblock_orientation[0]) 
         self.layout_ori = self.config.get_option('layout_ori', self.layout_orientation[0]) 
         self.rotated_elevations = self.config.get_option('rotated_elevations', False)
+        self.el_as_sec = self.config.get_option('el_as_sec', False)
 
     def set_titleblocks(self):        
         self.titleblock = self.config.get_option('titleblock', list(self.titleblock_dict.keys())[0])
@@ -37,6 +38,8 @@ class UI:
             self.config.layout_ori = val
         if var == "rotated_elevations":
             self.config.rotated_elevations = val
+        if var == "el_as_sec":
+            self.config.el_as_sec = val
         if var == "titleblock":
             self.config.titleblock = val
         if var == "viewplan":

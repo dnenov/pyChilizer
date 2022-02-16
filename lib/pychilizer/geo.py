@@ -1,6 +1,7 @@
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 import math
 from pyrevit.framework import List
+from pychilizer import database
 from Autodesk.Revit import Exceptions
 
 
@@ -205,6 +206,9 @@ def get_bb_outline(bb):
 def set_crop_to_bb(element, view, crop_offset):
     # set the crop box of the view to elements's bounding box in that view
     # draw 2 sets of outlines for each orientation (front/back, left/right)
+    # deactivate bbox first, just to make sure the element appears in view
+    view.CropBoxActive = False
+    revit.doc.Regenerate()
     bb = element.get_BoundingBox(view)
 
     pt1 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
@@ -232,6 +236,8 @@ def set_crop_to_bb(element, view, crop_offset):
 
     crsm = view.GetCropRegionShapeManager()
     view_direction = view.ViewDirection
+
+    view.CropBoxActive = True
 
     try:
         # try with set 1, if doesn't work try with set 2
@@ -352,3 +358,51 @@ def room_to_extrusion(r, family_doc):
     except Exceptions.InternalException:
         print("Extrusion failed for room {}. Try fixing room boundaries".format(output.linkify(r.Id)))
         return
+
+
+def create_room_axo_rotate(room, view_scale=50):
+    # create 3D axo for a room, rotate the Section Box to fit
+    threeD_type = database.get_view_family_types(DB.ViewFamily.ThreeDimensional)[0]
+
+    threeD = DB.View3D.CreateIsometric(revit.doc, threeD_type.Id)
+    threeD.Scale = view_scale
+
+    # 1. rotate room geometry
+    room_shell = room.ClosedShell
+    angle = room_rotation_angle(room)
+    rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, -angle, room.Location.Point)
+    rotated_shell = room_shell.GetTransformed(rotation)
+
+    # 2. get the bbox of the rotated shell
+    shell_bb = rotated_shell.GetBoundingBox()
+    rotate_back = rotation.Inverse
+
+    # rotate the bbox back
+    new_bb = DB.BoundingBoxXYZ()
+    new_bb.Transform = rotate_back
+    new_bb.Min = shell_bb.Min
+    new_bb.Max = shell_bb.Max
+
+    # set bbox as section box
+    sb = threeD.SetSectionBox(new_bb)
+
+    # set orientation
+    eye = DB.XYZ(0, 0, 0)
+    up = DB.XYZ(-1, 1, 2)
+    fwd = DB.XYZ(-1, 1, -1)
+
+    view_orientation = DB.ViewOrientation3D(eye, up, fwd)
+    threeD.SetOrientation(view_orientation)
+    threeD.CropBoxActive = True
+    revit.doc.Regenerate()
+    crop_axo(threeD)
+
+    return threeD
+
+
+def room_bb_outlines(room):
+    # get the outlines of a room's bounding box, rotated
+    angle = room_rotation_angle(room)
+    rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room.Location.Point)
+    rotated_crop_loop = get_aligned_crop(room.ClosedShell, rotation.Inverse)
+    return rotated_crop_loop
