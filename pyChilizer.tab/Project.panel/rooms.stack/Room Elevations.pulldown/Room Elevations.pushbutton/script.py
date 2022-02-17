@@ -1,6 +1,3 @@
-__title__ = "Room Elevations"
-__doc__ = "Creates elevation markers and rotates them to align with the room"
-
 from pyrevit import revit, DB, script, forms
 from rpw.ui.forms import FlexForm, Label, TextBox, Button,ComboBox, Separator
 from pychilizer import database, units, select, geo
@@ -10,10 +7,7 @@ import sys
 output = script.get_output()
 logger = script.get_logger()
 
-# use preselected elements, filtering rooms only
-selection = select.select_rooms_filter()
-if not selection:
-    forms.alert("You need to select at least one Room.", exitscript=True)
+selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Data Sheets")
 
 # collect all view templates sections
 viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection) # collect sections

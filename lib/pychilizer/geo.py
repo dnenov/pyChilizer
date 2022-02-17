@@ -169,22 +169,41 @@ def get_longest_boundary(r):
 def room_rotation_angle(room):
     # get the angle of the room's longest boundary to Y axis
     # choose one longest curve to use as reference for rotation
+
     longest_boundary = get_longest_boundary(room)
     p = longest_boundary.GetEndPoint(0)
     q = longest_boundary.GetEndPoint(1)
     v = q - p
+
+    y1 = room.Location.Point
+    y2 = DB.XYZ(y1.X, y1.Y+1, y1.Z)
+    y_dir = y2-y1
+
     # get angle and correct value
-    bbox_angle = v.AngleTo(DB.XYZ.BasisY)
-    # correct angles
-    if bbox_angle > math.radians(90):
-        bbox_angle = bbox_angle - math.radians(90)
-        if bbox_angle < math.radians(45):
-            bbox_angle = -bbox_angle
-    elif bbox_angle < math.radians(45):
-        bbox_angle = -bbox_angle
-    else:
-        bbox_angle = bbox_angle
-    return bbox_angle
+    angle = v.AngleTo(y_dir)
+    # print ("initial angle: {}\n".format(math.degrees(angle)))
+
+    rotation = DB.Transform.CreateRotation(DB.XYZ.BasisZ, -angle)
+    rotated_vector = rotation.OfVector(v)
+    must_be_zero = math.degrees(rotated_vector.AngleTo(y_dir))
+    # print ("angle between rotated and Y vector : {}\n".format(math.degrees(must_be_zero)))
+    if round(must_be_zero, 0) != math.radians(0):
+        angle = -angle
+        rotation2 = DB.Transform.CreateRotation(DB.XYZ.BasisZ, -angle)
+        rotated_vector2 = rotation2.OfVector(v)
+        must_be_zero2 = math.degrees(rotated_vector2.AngleTo(y_dir))
+        # print("corrected angle {}, second check{}".format(math.degrees(angle), math.degrees(must_be_zero2)))
+        if round(must_be_zero2,0) != math.radians(0):
+            angle = math.radians(90)-angle
+
+
+    while abs(angle) > math.radians(90):
+        if angle > math.radians(0):
+            angle = angle - math.radians(90)
+        elif angle < math.radians(0):
+            angle = angle + math.radians(90)
+    # print ("final angle", angle)
+    return angle
 
 
 def get_bb_outline(bb):
@@ -206,7 +225,7 @@ def get_bb_outline(bb):
 def set_crop_to_bb(element, view, crop_offset):
     # set the crop box of the view to elements's bounding box in that view
     # draw 2 sets of outlines for each orientation (front/back, left/right)
-    # deactivate bbox first, just to make sure the element appears in view
+    # # deactivate bbox first, just to make sure the element appears in view
     view.CropBoxActive = False
     revit.doc.Regenerate()
     bb = element.get_BoundingBox(view)
@@ -360,7 +379,10 @@ def room_to_extrusion(r, family_doc):
         return
 
 
-def create_room_axo_rotate(room, view_scale=50):
+def create_room_axo_rotate(room, angle=None, view_scale=50):
+    if angle == None:
+        angle = room_rotation_angle(room)
+
     # create 3D axo for a room, rotate the Section Box to fit
     threeD_type = database.get_view_family_types(DB.ViewFamily.ThreeDimensional)[0]
 
@@ -369,7 +391,6 @@ def create_room_axo_rotate(room, view_scale=50):
 
     # 1. rotate room geometry
     room_shell = room.ClosedShell
-    angle = room_rotation_angle(room)
     rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, -angle, room.Location.Point)
     rotated_shell = room_shell.GetTransformed(rotation)
 
@@ -400,9 +421,10 @@ def create_room_axo_rotate(room, view_scale=50):
     return threeD
 
 
-def room_bb_outlines(room):
+def room_bb_outlines(room, angle=None):
+    if angle==None:
+        angle=room_rotation_angle(room)
     # get the outlines of a room's bounding box, rotated
-    angle = room_rotation_angle(room)
     rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room.Location.Point)
     rotated_crop_loop = get_aligned_crop(room.ClosedShell, rotation.Inverse)
     return rotated_crop_loop

@@ -133,7 +133,8 @@ def char_i(i):
     return ascii_uppercase[i]
 
 
-def get_view_family_types(viewtype, doc=revit.doc):
+def get_view_family_types(viewtype):
+    doc = __revit__.ActiveUIDocument.Document
     return [vt for vt in DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType) if
                 vt.ViewFamily == viewtype]
 
@@ -222,3 +223,7 @@ def unique_view_name(name, suffix=None):
     while get_view(unique_v_name):
         unique_v_name = unique_v_name + " Copy 1"
     return unique_v_name
+
+
+def shift_list(l, n):
+    return l[n:] + l[:n]
