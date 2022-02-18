@@ -25,10 +25,8 @@ ui.viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate}  # only 
 viewplans = DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan)  # collect plans
 ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate}  # only fetch IsTemplate plans
 
-# TODO
-# viewport_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.Viewport).WhereElementIsElementType() # collect all viewport types
-# ui.viewport_dict = {v.Name: v for v in viewport_types}  
-
+# TODO: fix the default value
+ui.viewport_dict = {database.get_name(v): v for v in database.get_viewport_types()} # use a special collector w viewport param
 # add none as an option
 ui.viewsection_dict["<None>"] = None
 ui.viewplan_dict["<None>"] = None
@@ -78,8 +76,8 @@ components = [
     ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewceiling)),
     Label("View Template for Elevations"),
     ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=database.vt_name_match(ui.viewsection)),
-    # Label("Viewport Type"),
-    # ComboBox(name="vp_types", options=sorted(ui.viewport_dict), default=database.vp_name_match(ui.viewport)),
+    Label("Viewport Type"),
+    ComboBox(name="vp_types", options=sorted(ui.viewport_dict)),
     Separator(),
     Button("Select"),
 ]
@@ -94,6 +92,7 @@ if ok:
     chosen_vt_rcp_plan = ui.viewplan_dict[form.values["vt_rcp_plans"]]
     chosen_vt_elevation = ui.viewsection_dict[form.values["vt_elevs"]]
     chosen_tb = ui.titleblock_dict[form.values["tb"]]
+    chosen_vp_type = ui.viewport_dict[form.values["vp_types"]]
     chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
     titleblock_offset = units.correct_input_units(form.values["titleblock_offset"])
     layout_ori = form.values["layout_orientation"]
@@ -247,6 +246,7 @@ for room in selection:
         # place view on sheet
         place_plan = DB.Viewport.Create(doc, sheet.Id, viewplan.Id, plan_position)
         place_RCP = DB.Viewport.Create(doc, sheet.Id, viewRCP.Id, RCP_position)
+
         if layout_ori == "Cross":
             place_threeD = DB.Viewport.Create(doc, sheet.Id, threeD.Id, threeD_position)
 
@@ -269,6 +269,10 @@ for room in selection:
             room_bb = room.get_BoundingBox(el)
             geo.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
             database.apply_vt(el, chosen_vt_elevation)
+
+        # new: change viewport types
+        for vp in elevations + [place_plan] + [place_RCP]:
+            vp.ChangeTypeId(chosen_vp_type.Id)
 
         doc.Regenerate()
 

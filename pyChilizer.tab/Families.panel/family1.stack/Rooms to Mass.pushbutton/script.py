@@ -42,7 +42,7 @@ if selection:
         fam_type_name = re.sub(r'[^\w\-_\. ]', '', room_name)
 
         # check if family already exists:
-        while database.get_fam(fam_name):
+        while database.get_fam_any_type(fam_name):
             fam_name = fam_name + "_Copy 1"
 
         # Save family in temp folder
@@ -84,7 +84,7 @@ if selection:
         with revit.Transaction("Load Family", revit.doc):
             loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
             # find family symbol and activate
-            fam_symbol = database.get_fam(fam_name)
+            fam_symbol = database.get_fam_any_type(fam_name)
             if not fam_symbol.IsActive:
                 fam_symbol.Activate()
                 revit.doc.Regenerate()

@@ -25,7 +25,20 @@ def get_view(some_name):
     return found_view
 
 
-def get_fam(family_name):
+def get_fam_types(family_name):
+    fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
+    fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
+    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    fam_filter = DB.ElementParameterFilter(fam_filter_rule)
+
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(fam_filter) \
+        .WhereElementIsElementType()
+
+    return collector
+
+
+def get_fam_any_type(family_name):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
     fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
@@ -37,6 +50,7 @@ def get_fam(family_name):
         .FirstElement()
 
     return collector
+
 
 
 def param_set_by_cat(cat):
@@ -236,3 +250,41 @@ def unique_view_name(name, suffix=None):
 
 def shift_list(l, n):
     return l[n:] + l[:n]
+
+
+def get_viewport_types():
+    # get viewport types using a parameter filter
+    bip_id = DB.ElementId(DB.BuiltInParameter.VIEWPORT_ATTR_SHOW_LABEL)
+    bip_provider = DB.ParameterValueProvider(bip_id)
+    rule = DB.FilterIntegerRule(bip_provider, DB.FilterNumericGreaterOrEqual(), 0)
+    param_filter = DB.ElementParameterFilter(rule)
+
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(param_filter) \
+        .WhereElementIsElementType()\
+        .ToElements()
+
+    return collector
+
+
+def get_vp_by_name(name):
+    bip_id = DB.ElementId(DB.BuiltInParameter.VIEWPORT_ATTR_SHOW_LABEL)
+    bip_provider = DB.ParameterValueProvider(bip_id)
+    rule = DB.FilterIntegerRule(bip_provider, DB.FilterNumericGreaterOrEqual(), 0)
+    param_filter = DB.ElementParameterFilter(rule)
+
+    type_bip_id = DB.ElementId(DB.BuiltInParameter.ALL_MODEL_TYPE_NAME)
+    type_bip_provider = DB.ParameterValueProvider(type_bip_id)
+    type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), name, True)
+    type_filter = DB.ElementParameterFilter(type_filter_rule)
+
+    and_filter = DB.LogicalAndFilter(param_filter, type_filter)
+
+
+
+    collector = DB.FilteredElementCollector(revit.doc) \
+        .WherePasses(and_filter) \
+        .WhereElementIsElementType()\
+        .FirstElement()
+
+    return collector

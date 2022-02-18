@@ -1,8 +1,5 @@
-import math
-
-from pyrevit import revit, DB, script, forms
-from pyrevit.revit import selection as sel, geom
-from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, Separator
+from pyrevit import revit, DB, script
+from rpw.ui.forms import FlexForm, Label, Button, ComboBox, TextBox, Separator
 from pychilizer import database, units, select, geo
 import sys
 
@@ -10,10 +7,12 @@ import sys
 output = script.get_output()
 logger = script.get_logger()
 
+doc = __revit__.ActiveUIDocument.Document
+
 selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Data Sheets")
 
 # collect all view templates sections
-viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection)  # collect sections
+viewsections = DB.FilteredElementCollector(doc).OfClass(DB.ViewSection)  # collect sections
 viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate}  # only fetch the IsTemplate sections
 
 # add none as an option
@@ -26,7 +25,7 @@ section_type = database.get_view_family_types(DB.ViewFamily.Section)[0]
 tolerance = 0.032
 view_scale = 50
 # get units for Crop Offset variable
-if units.is_metric(revit.doc):
+if units.is_metric(doc):
     unit_sym = "Crop Offset [mm]"
     default_crop_offset = 350
 else:
@@ -47,14 +46,14 @@ components = [
 form = FlexForm("View Settings", components)
 ok = form.show()
 if ok:
-    # match the variables with user input
     chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
+    # match the variables with user input
     # chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
 else:
     sys.exit()
 
 
-with revit.Transaction("Create Room Sections", revit.doc):
+with revit.Transaction("Create Room Sections", doc):
     for room in selection:
         # Format View Name
         room_name_nr = (
@@ -82,24 +81,25 @@ with revit.Transaction("Create Room Sections", revit.doc):
             sb = database.create_parallel_bbox(border, room)
 
             # if form.values["sec_or_elev"] == "Sections":
-            new_section = DB.ViewSection.CreateSection(revit.doc, section_type.Id, sb)
+            new_section = DB.ViewSection.CreateSection(doc, section_type.Id, sb)
             new_section.Name = section_name
             database.apply_vt(new_section, chosen_vt_elevation)
+            # todo: crop offset only works with 0
+            geo.set_crop_to_bb(room, new_section, crop_offset=0)
             print("\n{}".format(output.linkify(new_section.Id)))
-            # todo: set crop no working
-            # set_crop_to_bb(room, new_section, chosen_crop_offset)
+
 
 
             # TODO: Marker rotation not solved yet
             # else:
             # # Create Elevations
             #     new_marker = DB.ElevationMarker.CreateElevationMarker(
-            #             revit.doc, elevation_type.Id, marker_pt, view_scale
+            #             doc, elevation_type.Id, marker_pt, view_scale
             #         )
-            #     revit.doc.Regenerate()
-            #     new_elevation = new_marker.CreateElevation(revit.doc, viewplan.Id, 1)
+            #     doc.Regenerate()
+            #     new_elevation = new_marker.CreateElevation(doc, viewplan.Id, 1)
             #     new_elevation.Name = elev_name
-            #     revit.doc.Regenerate()
+            #     doc.Regenerate()
             #
             #     #debug
             #     view_direction = new_elevation.ViewDirection

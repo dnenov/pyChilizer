@@ -24,7 +24,7 @@ class Locator:
         if layout == 'Tiles':            
             self.plan = (pos[4] + pos[6])/2
             self.rcp = (pos[5] + pos[7])/2
-            self.elevations = [pos[0], pos[1], pos[2], pos[3]]
+            self.elevations = [pos[1], pos[3], pos[0], pos[2]]
 
         elif layout == 'Cross':            
             self.plan = pos[4]
