@@ -1,24 +1,18 @@
-from pyrevit import revit, DB, script, forms, HOST_APP
-from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button)
+from pyrevit import revit, DB, script, forms
 import tempfile
-import helper
 import re
-from pyrevit.revit.db import query
+from pychilizer import select, geo, database
+from Autodesk.Revit import Exceptions
 
 logger = script.get_logger()
 output = script.get_output()
 
-# use preselected elements, filtering rooms only
-pre_selection = helper.preselection_with_filter(DB.BuiltInCategory.OST_Rooms)
-# or select rooms
-if pre_selection and forms.alert("You have selected {} elements. Do you want to use them?".format(len(pre_selection))):
-    selection = pre_selection
-else:
-    selection = helper.select_rooms_filter()
+selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms to Transform")
 
 if selection:
     # Create family doc from template
-    fam_template_path = __revit__.Application.FamilyTemplatePath + "\Conceptual Mass\Metric Mass.rft"
+    #todo: add languages
+    fam_template_path = database.get_mass_template_path()
 
     # iterate through rooms
     for room in selection:
@@ -48,7 +42,7 @@ if selection:
         fam_type_name = re.sub(r'[^\w\-_\. ]', '', room_name)
 
         # check if family already exists:
-        while helper.get_fam(fam_name):
+        while database.get_fam(fam_name):
             fam_name = fam_name + "_Copy 1"
 
         # Save family in temp folder
@@ -90,7 +84,7 @@ if selection:
         with revit.Transaction("Load Family", revit.doc):
             loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
             # find family symbol and activate
-            fam_symbol = helper.get_fam(fam_name)
+            fam_symbol = database.get_fam(fam_name)
             if not fam_symbol.IsActive:
                 fam_symbol.Activate()
                 revit.doc.Regenerate()

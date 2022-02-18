@@ -58,11 +58,14 @@ try:
         with revit.Transaction("Toggle", doc=doc):
             for vp in vports:
                 cur_vp_param = vp.LookupParameter("Detail Number")
+                print(cur_vp_param)
                 cur_vp = str(cur_vp_param.AsString())
                 if cur_vp == str(counter):
                     carry = str(detail_number.AsString())
                     detail_number.Set("99")
                     cur_vp_param.Set(carry)
+                    detail_number.Set(str(counter))
+                else:
                     detail_number.Set(str(counter))
 except:    
     pass

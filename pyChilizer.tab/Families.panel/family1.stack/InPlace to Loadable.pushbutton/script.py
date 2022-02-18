@@ -11,6 +11,7 @@ output = script.get_output()
 from Autodesk.Revit import Exceptions
 import rpw
 
+#todo: update languages
 
 def get_fam(some_name, category=DB.BuiltInCategory.OST_GenericModel):
     # get family by given name
