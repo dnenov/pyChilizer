@@ -1,3 +1,5 @@
+import math
+
 from pyrevit import revit, DB, script
 from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, CheckBox, Separator
 import locator, ui
@@ -5,8 +7,11 @@ from itertools import izip
 import sys
 from pychilizer import units, select, geo, database
 
+
 ui = ui.UI(script)
 ui.is_metric = units.is_metric
+
+doc = __revit__.ActiveUIDocument.Document
 
 output = script.get_output()
 logger = script.get_logger()  # helps to debug script, not used
@@ -14,10 +19,10 @@ logger = script.get_logger()  # helps to debug script, not used
 selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Data Sheets")
 
 # collect all view templates for plans and sections
-viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection)  # collect sections
+viewsections = DB.FilteredElementCollector(doc).OfClass(DB.ViewSection)  # collect sections
 ui.viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate}  # only fetch the IsTemplate sections
 
-viewplans = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewPlan)  # collect plans
+viewplans = DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan)  # collect plans
 ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate}  # only fetch IsTemplate plans
 
 # TODO
@@ -31,24 +36,22 @@ ui.viewplan_dict["<None>"] = None
 ui.set_viewtemplates()
 
 # collect titleblocks in a dictionary
-titleblocks = DB.FilteredElementCollector(revit.doc).OfCategory(
+titleblocks = DB.FilteredElementCollector(doc).OfCategory(
     DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
 ui.titleblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
 ui.set_titleblocks()
 
 
 # collect and take the first view plan type, elevation type, set default scale
-floor_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan)[0]
-# floor_plan_type=[vt for vt in DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType) if
-#                 vt.ViewFamily == DB.ViewFamily.FloorPlan][0]
+fl_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan)[0]
 ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan)[0]
-elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
+elev_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
 section_type = database.get_view_family_types(DB.ViewFamily.Section)[0]
 
 view_scale = 50
 
 # get units for Crop Offset variable
-if units.is_metric(revit.doc):
+if units.is_metric(doc):
     unit_sym = "Crop Offset [mm]"
 else:
     unit_sym = "Crop Offset [decimal inches]"
@@ -113,69 +116,64 @@ ui.set_config("viewceiling", form.values["vt_rcp_plans"])
 ui.set_config("viewsection", form.values["vt_elevs"])
 
 for room in selection:
-    with revit.Transaction("Create Plan", revit.doc):
+    with revit.Transaction("Create Plan", doc):
         level = room.Level
-        room_location = room.Location.Point
+        rm_loc = room.Location.Point
+        angle = geo.room_rotation_angle(room) # helper method get room rotation by longest boundary
 
         # Create Floor Plan
-        viewplan = DB.ViewPlan.Create(revit.doc, floor_plan_type.Id, level.Id)
-        # weird bug happened here, solved re-launching revit
+        viewplan = DB.ViewPlan.Create(doc, fl_plan_type.Id, level.Id)
         viewplan.Scale = view_scale
 
         # Create Reflected Ceiling Plan
-        viewRCP = DB.ViewPlan.Create(revit.doc, ceiling_plan_type.Id, level.Id)
+        viewRCP = DB.ViewPlan.Create(doc, ceiling_plan_type.Id, level.Id)
         viewRCP.Scale = view_scale
 
-        if layout_ori == "Cross":
-            threeD = geo.create_room_axo_rotate(room, view_scale)
+        if layout_ori == "Cross": # for cross layout, add the 3D axo
+            threeD = geo.create_room_axo_rotate(room, angle, view_scale)
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
     crop_box_rcp = geo.find_crop_box(viewRCP)
 
-    with revit.Transaction("Crop and Create Elevations", revit.doc):
+    with revit.Transaction("Crop and Create Elevations", doc):
         # rotate the view plan
         axis = geo.get_bb_axis_in_view(room, viewplan)  # get the axis for rotation
-        angle = geo.room_rotation_angle(room)  # rotate the room geometry by longest boundary
-
-        # rotate plan
         rotated_plan = DB.ElementTransformUtils.RotateElement(
-            revit.doc, crop_box_plan.Id, axis, angle
+            doc, crop_box_plan.Id, axis, angle
         )
         # rotate RCP
         rotated_rcp = DB.ElementTransformUtils.RotateElement(
-            revit.doc, crop_box_rcp.Id, axis, angle
+            doc, crop_box_rcp.Id, axis, angle
         )
 
         viewplan.CropBoxActive = True
         viewRCP.CropBoxActive = True
-        revit.doc.Regenerate()
-
+        doc.Regenerate()
 
         room_boundaries = geo.get_room_bound(room)
+
         if room_boundaries:
+            crsm_plan = viewplan.GetCropRegionShapeManager()
+            crsm_rcp = viewRCP.GetCropRegionShapeManager()
             # try offsetting boundaries (to include walls in plan view)
             try:
-                offset_boundaries = room_boundaries.CreateViaOffset(
+                offset_loop = room_boundaries.CreateViaOffset(
                     room_boundaries, chosen_crop_offset, DB.XYZ(0, 0, 1)
                 )
-                crop_shape = viewplan.GetCropRegionShapeManager()
-                crop_shape.SetCropShape(offset_boundaries)
-                crop_RCP = viewRCP.GetCropRegionShapeManager()
-                crop_RCP.SetCropShape(offset_boundaries)
-                revit.doc.Regenerate()
+
+                crsm_plan.SetCropShape(offset_loop)
+                crsm_rcp.SetCropShape(offset_loop)
             # for some shapes the offset is not obvious and will fail, then use BBox method:
             except:
-                revit.doc.Regenerate()
                 # using a helper method, get the outlines of the room's bounding box,
-                rotated_crop_loop = geo.room_bb_outlines(room)
+                rotated_crop_loop = geo.room_bb_outlines(room, angle)
                 # offset the curve loop with given offset
-                curve_loop_offset = DB.CurveLoop.CreateViaOffset(rotated_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)
+                offset_loop = DB.CurveLoop.CreateViaOffset(rotated_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)
                 # set the loop as Crop Shape of the view using CropRegionShapeManager
-                crsm_plan = viewplan.GetCropRegionShapeManager()
-                crsm_rcp = viewRCP.GetCropRegionShapeManager()
-                crsm_plan.SetCropShape(curve_loop_offset)
-                crsm_rcp.SetCropShape(curve_loop_offset)
+
+                crsm_plan.SetCropShape(offset_loop)
+                crsm_rcp.SetCropShape(offset_loop)
 
         # Construct View Names
         room_name_nr = (
@@ -195,37 +193,30 @@ for room in selection:
         database.set_anno_crop(viewRCP)
 
         # Create Elevations
-        revit.doc.Regenerate()
         elevations_col = []
         elevation_count = ["A", "B", "C", "D"]
         if elev_as_sections:
-            room_bb_loop = geo.room_bb_outlines(room)
+            elevation_count = database.shift_list(elevation_count, 1)
+            room_bb_loop = geo.room_bb_outlines(room, angle)
             offset_in = DB.CurveLoop.CreateViaOffset(room_bb_loop, -chosen_crop_offset, DB.XYZ.BasisZ)
             for border in offset_in:
                 # create a bbox parallel to the border
                 sb = database.create_parallel_bbox(border, room)
-
-                # if form.values["sec_or_elev"] == "Sections":
-                new_section = DB.ViewSection.CreateSection(revit.doc, section_type.Id, sb)
+                new_section = DB.ViewSection.CreateSection(doc, section_type.Id, sb)
                 elevations_col.append(new_section)
-
         else:
-
-            new_marker = DB.ElevationMarker.CreateElevationMarker(
-                revit.doc, elevation_type.Id, room_location, view_scale
-            )
-            # rotate marker
-            revit.doc.Regenerate()
-            marker_axis = DB.Line.CreateBound(
-                room_location, room_location + DB.XYZ.BasisZ
-            )
-            rotated = new_marker.Location.Rotate(marker_axis, angle)
-            revit.doc.Regenerate()
-
+            # create marker
+            new_marker = DB.ElevationMarker.CreateElevationMarker(doc, elev_type.Id, rm_loc, view_scale)
+            # create 4 elevations
             for i in range(4):
-                elevation = new_marker.CreateElevation(revit.doc, viewplan.Id, i)
+                elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
                 elevations_col.append(elevation)
 
+            # rotate marker with room rotation angle
+            doc.Regenerate()
+            marker_axis = DB.Line.CreateBound(rm_loc, rm_loc + DB.XYZ.BasisZ)
+            new_marker.Location.Rotate(marker_axis, angle)
+            doc.Regenerate()
         # Rename elevations
 
         for el, i in izip(elevations_col, elevation_count):
@@ -240,50 +231,52 @@ for room in selection:
     loc = locator.Locator(sheet, titleblock_offset, tb_ori, layout_ori)
     plan_position = loc.plan
     RCP_position = loc.rcp
-    elevations_positions = loc.elevations
+    elev_positions = loc.elevations
+    # if using sections, shift the positions with 1 index
+    if elev_as_sections:
+        elev_positions = database.shift_list(elev_positions, 1)
     threeD_position = loc.threeD
 
     elevations = []  # collect all elevations we create
 
-    # create viewports on sheet
-    with revit.Transaction("Add Views to Sheet", revit.doc):
+    with revit.Transaction("Add Views to Sheet", doc):
         # apply view template
         database.apply_vt(viewplan, chosen_vt_plan)
         database.apply_vt(viewRCP, chosen_vt_rcp_plan)
 
         # place view on sheet
-        place_plan = DB.Viewport.Create(revit.doc, sheet.Id, viewplan.Id, plan_position)
-        place_RCP = DB.Viewport.Create(revit.doc, sheet.Id, viewRCP.Id, RCP_position)
+        place_plan = DB.Viewport.Create(doc, sheet.Id, viewplan.Id, plan_position)
+        place_RCP = DB.Viewport.Create(doc, sheet.Id, viewRCP.Id, RCP_position)
         if layout_ori == "Cross":
-            place_threeD = DB.Viewport.Create(revit.doc, sheet.Id, threeD.Id, threeD_position)
+            place_threeD = DB.Viewport.Create(doc, sheet.Id, threeD.Id, threeD_position)
 
-        for el, pos, i in izip(elevations_col, elevations_positions, elevation_count):
+        for el, pos, i in izip(elevations_col, elev_positions, elevation_count):
             # place elevations
-            place_elevation = DB.Viewport.Create(revit.doc, sheet.Id, el.Id, pos)
+            place_elevation = DB.Viewport.Create(doc, sheet.Id, el.Id, pos)
 
             # if user selected, rotate elevations
-            if elev_rotate and i == "A":
+            if elev_rotate and i == "A" and layout_ori == "Cross":
                 place_elevation.Rotation = DB.ViewportRotation.Counterclockwise
-            if elev_rotate and i == "C":
+            if elev_rotate and i == "C" and layout_ori == "Cross":
                 place_elevation.Rotation = DB.ViewportRotation.Clockwise
 
-                # set viewport detail number
+            # set viewport detail number
             place_elevation.get_Parameter(
                 DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER
             ).Set(i)
             elevations.append(place_elevation)
-            revit.doc.Regenerate()
+            doc.Regenerate()
             room_bb = room.get_BoundingBox(el)
             geo.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
             database.apply_vt(el, chosen_vt_elevation)
 
-        revit.doc.Regenerate()
+        doc.Regenerate()
 
         # realign the viewports to their desired positions
-        loc.realign_pos(revit.doc, [place_plan], [plan_position])
-        loc.realign_pos(revit.doc, [place_RCP], [RCP_position])
-        loc.realign_pos(revit.doc, elevations, elevations_positions)
+        loc.realign_pos(doc, [place_plan], [plan_position])
+        loc.realign_pos(doc, [place_RCP], [RCP_position])
+        loc.realign_pos(doc, elevations, elev_positions)
         if layout_ori == "Cross":
-            loc.realign_pos(revit.doc, [place_threeD], [threeD_position])
+            loc.realign_pos(doc, [place_threeD], [threeD_position])
 
         print("Sheet : {0} \t Room {1} ".format(output.linkify(sheet.Id), room_name_nr))
