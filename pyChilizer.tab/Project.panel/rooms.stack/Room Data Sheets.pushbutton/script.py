@@ -20,6 +20,10 @@ ui.viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate}  # only 
 viewplans = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewPlan)  # collect plans
 ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate}  # only fetch IsTemplate plans
 
+# TODO
+# viewport_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.Viewport).WhereElementIsElementType() # collect all viewport types
+# ui.viewport_dict = {v.Name: v for v in viewport_types}  
+
 # add none as an option
 ui.viewsection_dict["<None>"] = None
 ui.viewplan_dict["<None>"] = None
@@ -71,6 +75,8 @@ components = [
     ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewceiling)),
     Label("View Template for Elevations"),
     ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=database.vt_name_match(ui.viewsection)),
+    # Label("Viewport Type"),
+    # ComboBox(name="vp_types", options=sorted(ui.viewport_dict), default=database.vp_name_match(ui.viewport)),
     Separator(),
     Button("Select"),
 ]
@@ -239,6 +245,7 @@ for room in selection:
 
     elevations = []  # collect all elevations we create
 
+    # create viewports on sheet
     with revit.Transaction("Add Views to Sheet", revit.doc):
         # apply view template
         database.apply_vt(viewplan, chosen_vt_plan)

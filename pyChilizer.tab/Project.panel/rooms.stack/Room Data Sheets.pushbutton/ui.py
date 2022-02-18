@@ -6,6 +6,7 @@ class UI:
         self.titleblock_dict = {}
         self.viewplan_dict = {}
         self.viewsection_dict = {}
+        # self.viewport_dict = {}
         self.titleblock = None
         self.tblock_orientation = ['Vertical', 'Horizontal']
         self.layout_orientation = ['Tiles', 'Cross']
@@ -24,6 +25,7 @@ class UI:
         self.viewplan = self.config.get_option('viewplan', "<None>")
         self.viewceiling = self.config.get_option('viewceiling', "<None>")
         self.viewsection = self.config.get_option('viewsection', "<None>")
+        # self.viewport = self.config.get_option('viewport', self.viewport_dict.values()[0])
 
     def set_config(self, var, val):
         if var == "sheet_number":
@@ -48,6 +50,8 @@ class UI:
             self.config.viewceiling = val
         if var == "viewsection":
             self.config.viewsection = val
+        if var == "viewport":
+            self.config.viewport = val
             
 
         self.script.save_config()

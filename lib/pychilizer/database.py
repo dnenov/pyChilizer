@@ -207,6 +207,15 @@ def vt_name_match(vt_name):
             vt_match = v.Name
     return vt_match
 
+    
+def vp_name_match(vp_name):
+    # return a view template with a given name, None if not found
+    views = DB.FilteredElementCollector(revit.doc).OfClass(DB.Viewport)
+    for v in views:
+        if v.Name == vp_name:
+            return v.Name            
+    return views.FirstElement().Name
+
 
 def tb_name_match(tb_name):
     titleblocks = DB.FilteredElementCollector(revit.doc).OfCategory(
