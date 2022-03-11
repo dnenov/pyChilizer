@@ -36,9 +36,8 @@ if vsheet.ViewType != DB.ViewType.DrawingSheet:
     forms.alert("You're not on a Sheet. You need to be on a Sheet to use this command.",
                 exitscript=True)
 
-# Get all viewports 
+# Get all viewports of the current Sheet
 vport_element_ids = vsheet.GetAllViewports()
-
 vports = []
 
 for vp_id in vport_element_ids:
@@ -52,21 +51,26 @@ carry = ''
 try:
     while True:
         counter += 1
-        selection_element = revit.pick_element('Anything')        
-        detail_number = selection_element.LookupParameter("Detail Number")
+        finished = False
+        selection_element = revit.pick_element_by_category(DB.BuiltInCategory.OST_Viewports, 'Pick Viewport') # select a viewport       
+        detail_number = selection_element.LookupParameter("Detail Number") # take it's detail number parameter
 
-        with revit.Transaction("Toggle", doc=doc):
+        with revit.Transaction("Renumber", doc=doc):
+            # check if the desired detail number is already in use
             for vp in vports:
                 cur_vp_param = vp.LookupParameter("Detail Number")
-                print(cur_vp_param)
                 cur_vp = str(cur_vp_param.AsString())
-                if cur_vp == str(counter):
+                # if it is, make a swap and set it out
+                # mark as finished so we don't do it again
+                if cur_vp == str(counter):         
                     carry = str(detail_number.AsString())
                     detail_number.Set("99")
                     cur_vp_param.Set(carry)
                     detail_number.Set(str(counter))
-                else:
-                    detail_number.Set(str(counter))
-except:    
+                    finished = True
+            if not finished:
+                # if we didn't find a duplicate, just set it up
+                detail_number.Set(str(counter))
+except:   
     pass
 
