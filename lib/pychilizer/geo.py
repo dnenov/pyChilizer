@@ -222,12 +222,13 @@ def get_bb_outline(bb):
     return curves_set
 
 
-def set_crop_to_bb(element, view, crop_offset):
+def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
     # set the crop box of the view to elements's bounding box in that view
     # draw 2 sets of outlines for each orientation (front/back, left/right)
-    # # deactivate bbox first, just to make sure the element appears in view
+    # # deactivate crop first, just to make sure the element appears in view
     view.CropBoxActive = False
-    revit.doc.Regenerate()
+    doc.Regenerate()
+
     bb = element.get_BoundingBox(view)
 
     pt1 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
@@ -269,7 +270,8 @@ def set_crop_to_bb(element, view, crop_offset):
         crsm.SetCropShape(curve_loop_offset)
     except:
         crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set2))
-        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction) # fails here
         if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
             curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
         crsm.SetCropShape(curve_loop_offset)
@@ -379,14 +381,14 @@ def room_to_extrusion(r, family_doc):
         return
 
 
-def create_room_axo_rotate(room, angle=None, view_scale=50):
+def create_room_axo_rotate(room, angle=None, view_scale=50, doc=revit.doc):
     if angle == None:
         angle = room_rotation_angle(room)
 
     # create 3D axo for a room, rotate the Section Box to fit
-    threeD_type = database.get_view_family_types(DB.ViewFamily.ThreeDimensional)[0]
+    threeD_type = database.get_view_family_types(DB.ViewFamily.ThreeDimensional, doc)[0]
 
-    threeD = DB.View3D.CreateIsometric(revit.doc, threeD_type.Id)
+    threeD = DB.View3D.CreateIsometric(doc, threeD_type.Id)
     threeD.Scale = view_scale
 
     # 1. rotate room geometry
@@ -415,7 +417,7 @@ def create_room_axo_rotate(room, angle=None, view_scale=50):
     view_orientation = DB.ViewOrientation3D(eye, up, fwd)
     threeD.SetOrientation(view_orientation)
     threeD.CropBoxActive = True
-    revit.doc.Regenerate()
+    doc.Regenerate()
     crop_axo(threeD)
 
     return threeD

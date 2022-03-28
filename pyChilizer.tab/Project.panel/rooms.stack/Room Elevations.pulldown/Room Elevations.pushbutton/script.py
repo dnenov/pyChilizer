@@ -8,6 +8,7 @@ output = script.get_output()
 logger = script.get_logger()
 
 selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Data Sheets")
+doc = __revit__.ActiveUIDocument.Document
 
 # collect all view templates sections
 viewsections = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewSection) # collect sections
@@ -18,7 +19,7 @@ viewsection_dict["<None>"] = None
 
 
 # collect and take the first elevation type, set default scale
-elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
+elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
 view_scale = 50
 viewplan = revit.active_view
 # get units for Crop Offset variable
@@ -43,12 +44,12 @@ ok = form.show()
 if ok:
     # match the variables with user input
     chosen_vt_elevation = viewsection_dict[form.values["vt_elevs"]]
-    chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
+    chosen_crop_offset = units.correct_input_units(form.values["crop_offset"], doc)
 else:
     sys.exit()
 
 for room in selection:
-    with revit.Transaction("Create Elevations", revit.doc):
+    with revit.Transaction("Create Elevations", doc):
         room_location = room.Location.Point
         # rotate the view plan along the room's longest boundary
         axis = geo.get_bb_axis_in_view(room, viewplan)
@@ -62,15 +63,15 @@ for room in selection:
         )
 
         # Create Elevations
-        revit.doc.Regenerate()
+        doc.Regenerate()
         elevations_col = []
         new_marker = DB.ElevationMarker.CreateElevationMarker(
-            revit.doc, elevation_type.Id, room_location, view_scale
+            doc, elevation_type.Id, room_location, view_scale
         )
         elevation_count = ["A", "B", "C", "D"]
-        revit.doc.Regenerate()
+        doc.Regenerate()
         for i in range(4):
-            elevation = new_marker.CreateElevation(revit.doc, viewplan.Id, i)
+            elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
             elevation.Scale = view_scale
             # Rename elevations
             elevation_name = room_name_nr + " - Elevation " + elevation_count[i]
@@ -82,12 +83,12 @@ for room in selection:
             database.set_anno_crop(elevation)
 
         # rotate marker
-        revit.doc.Regenerate()
+        doc.Regenerate()
         marker_axis = DB.Line.CreateBound(
             room_location, room_location + DB.XYZ.BasisZ
         )
         rotated = new_marker.Location.Rotate(marker_axis, angle)
-        revit.doc.Regenerate()
+        doc.Regenerate()
         print("Created Elevations for room {}".format(room_name_nr))
 
         for el in elevations_col:

@@ -19,8 +19,8 @@ viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate}  # only fet
 viewsection_dict["<None>"] = None
 
 # collect and take the first elevation type, set default scale
-elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
-section_type = database.get_view_family_types(DB.ViewFamily.Section)[0]
+elevation_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
+section_type = database.get_view_family_types(DB.ViewFamily.Section, doc)[0]
 
 tolerance = 0.032
 view_scale = 50

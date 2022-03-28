@@ -1,6 +1,4 @@
-import math
-
-from pyrevit import revit, DB, script
+from pyrevit import revit, DB, script, forms
 from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, CheckBox, Separator
 import locator, ui
 from itertools import izip
@@ -10,7 +8,6 @@ from pychilizer import units, select, geo, database
 
 ui = ui.UI(script)
 ui.is_metric = units.is_metric
-
 doc = __revit__.ActiveUIDocument.Document
 
 output = script.get_output()
@@ -26,7 +23,7 @@ viewplans = DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan)  # collect pla
 ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate}  # only fetch IsTemplate plans
 
 # TODO: fix the default value
-ui.viewport_dict = {database.get_name(v): v for v in database.get_viewport_types()} # use a special collector w viewport param
+ui.viewport_dict = {database.get_name(v): v for v in database.get_viewport_types(doc)} # use a special collector w viewport param
 # add none as an option
 ui.viewsection_dict["<None>"] = None
 ui.viewplan_dict["<None>"] = None
@@ -39,29 +36,22 @@ titleblocks = DB.FilteredElementCollector(doc).OfCategory(
 ui.titleblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
 ui.set_titleblocks()
 
-
-# collect and take the first view plan type, elevation type, set default scale
-fl_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan)[0]
-ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan)[0]
-elev_type = database.get_view_family_types(DB.ViewFamily.Elevation)[0]
-section_type = database.get_view_family_types(DB.ViewFamily.Section)[0]
-
 view_scale = 50
 
 # get units for Crop Offset variable
 if units.is_metric(doc):
-    unit_sym = "Crop Offset [mm]"
+    unit_sym = " [mm]"
 else:
-    unit_sym = "Crop Offset [decimal inches]"
+    unit_sym = " [decimal feet]"
 
 components = [
     Label("Select Titleblock"),
-    ComboBox(name="tb", options=sorted(ui.titleblock_dict), default=database.tb_name_match(ui.titleblock)),
+    ComboBox(name="tb", options=sorted(ui.titleblock_dict), default=database.tb_name_match(ui.titleblock, doc)),
     Label("Sheet Number"),
     TextBox("sheet_number", Text=ui.sheet_number),
-    Label(unit_sym),
+    Label("Crop offset"+ unit_sym),
     TextBox("crop_offset", Text=str(ui.crop_offset)),
-    Label("Titleblock (internal) offset"),
+    Label("Titleblock (internal) offset" + unit_sym),
     TextBox("titleblock_offset", Text=str(ui.titleblock_offset)),
     Label("Layout orientation"),
     ComboBox(name="layout_orientation", options=ui.layout_orientation, default=ui.layout_ori),
@@ -71,11 +61,11 @@ components = [
     ComboBox(name="tb_orientation", options=ui.tblock_orientation, default=ui.titleblock_orientation),
     Separator(),
     Label("View Template for Plans"),
-    ComboBox(name="vt_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewplan)),
+    ComboBox(name="vt_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewplan, doc)),
     Label("View Template for Reflected Ceiling Plans"),
-    ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewceiling)),
+    ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewceiling, doc)),
     Label("View Template for Elevations"),
-    ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=database.vt_name_match(ui.viewsection)),
+    ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=database.vt_name_match(ui.viewsection, doc)),
     Label("Viewport Type"),
     ComboBox(name="vp_types", options=sorted(ui.viewport_dict)),
     Separator(),
@@ -93,14 +83,34 @@ if ok:
     chosen_vt_elevation = ui.viewsection_dict[form.values["vt_elevs"]]
     chosen_tb = ui.titleblock_dict[form.values["tb"]]
     chosen_vp_type = ui.viewport_dict[form.values["vp_types"]]
-    chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
-    titleblock_offset = units.correct_input_units(form.values["titleblock_offset"])
+    chosen_crop_offset = units.correct_input_units(form.values["crop_offset"], doc)
+    titleblock_offset = units.correct_input_units(form.values["titleblock_offset"], doc)
     layout_ori = form.values["layout_orientation"]
     tb_ori = form.values["tb_orientation"]
     elev_rotate = form.values["el_rotation"]
     elev_as_sections = form.values["el_as_sec"]
 else:
     sys.exit()
+
+# collect and take the first view plan type, elevation type, set default scale
+fl_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan, doc)[0]
+ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan, doc)[0]
+if elev_as_sections:
+    elev_type = database.get_view_family_types(DB.ViewFamily.Section, doc)[0]
+else:
+    elev_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
+
+# get default template
+def_temp = doc.GetElement(elev_type.DefaultTemplateId)
+if def_temp:
+    check_room_vis = def_temp.GetCategoryHidden(DB.ElementId(-2000160))
+    # check if rooms are hidden in the default template and disable it if yes
+    if check_room_vis:
+        if forms.alert(
+                "To proceed, we need to remove a Default View Template associated with Elevation / Section View Type. Is that cool with ya?",
+                ok=False, yes=True, no=True, exitscript=True):
+            with revit.Transaction("Remove ViewTemplate"):
+                elev_type.DefaultTemplateId = DB.ElementId(-1)
 
 ui.set_config("sheet_number", chosen_sheet_nr)
 ui.set_config("crop_offset", form.values["crop_offset"])
@@ -129,7 +139,7 @@ for room in selection:
         viewRCP.Scale = view_scale
 
         if layout_ori == "Cross": # for cross layout, add the 3D axo
-            threeD = geo.create_room_axo_rotate(room, angle, view_scale)
+            threeD = geo.create_room_axo_rotate(room, angle, view_scale, doc)
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
@@ -201,7 +211,7 @@ for room in selection:
             for border in offset_in:
                 # create a bbox parallel to the border
                 sb = database.create_parallel_bbox(border, room)
-                new_section = DB.ViewSection.CreateSection(doc, section_type.Id, sb)
+                new_section = DB.ViewSection.CreateSection(doc, elev_type.Id, sb)
                 elevations_col.append(new_section)
         else:
             # create marker
@@ -266,8 +276,7 @@ for room in selection:
             ).Set(i)
             elevations.append(place_elevation)
             doc.Regenerate()
-            room_bb = room.get_BoundingBox(el)
-            geo.set_crop_to_bb(room, el, crop_offset=chosen_crop_offset)
+            geo.set_crop_to_bb(room, el, chosen_crop_offset, doc)
             database.apply_vt(el, chosen_vt_elevation)
 
         # new: change viewport types

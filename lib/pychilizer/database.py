@@ -147,8 +147,7 @@ def char_i(i):
     return ascii_uppercase[i]
 
 
-def get_view_family_types(viewtype):
-    doc = __revit__.ActiveUIDocument.Document
+def get_view_family_types(viewtype, doc):
     return [vt for vt in DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType) if
                 vt.ViewFamily == viewtype]
 
@@ -213,9 +212,9 @@ def get_mass_template_path():
         return fam_template_path
 
 
-def vt_name_match(vt_name):
+def vt_name_match(vt_name, doc):
     # return a view template with a given name, None if not found
-    views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View)
+    views = DB.FilteredElementCollector(doc).OfClass(DB.View)
     vt_match = None
     for v in views:
         if v.IsTemplate and v.Name == vt_name:
@@ -223,17 +222,17 @@ def vt_name_match(vt_name):
     return vt_match
 
     
-def vp_name_match(vp_name):
+def vp_name_match(vp_name, doc):
     # return a view template with a given name, None if not found
-    views = DB.FilteredElementCollector(revit.doc).OfClass(DB.Viewport)
+    views = DB.FilteredElementCollector(doc).OfClass(DB.Viewport)
     for v in views:
         if v.Name == vp_name:
             return v.Name            
     return views.FirstElement().Name
 
 
-def tb_name_match(tb_name):
-    titleblocks = DB.FilteredElementCollector(revit.doc).OfCategory(
+def tb_name_match(tb_name, doc):
+    titleblocks = DB.FilteredElementCollector(doc).OfCategory(
         DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
     tb_match = None
     for tb in titleblocks:
@@ -252,14 +251,14 @@ def shift_list(l, n):
     return l[n:] + l[:n]
 
 
-def get_viewport_types():
+def get_viewport_types(doc=revit.doc):
     # get viewport types using a parameter filter
     bip_id = DB.ElementId(DB.BuiltInParameter.VIEWPORT_ATTR_SHOW_LABEL)
     bip_provider = DB.ParameterValueProvider(bip_id)
     rule = DB.FilterIntegerRule(bip_provider, DB.FilterNumericGreaterOrEqual(), 0)
     param_filter = DB.ElementParameterFilter(rule)
 
-    collector = DB.FilteredElementCollector(revit.doc) \
+    collector = DB.FilteredElementCollector(doc) \
         .WherePasses(param_filter) \
         .WhereElementIsElementType()\
         .ToElements()
@@ -267,7 +266,8 @@ def get_viewport_types():
     return collector
 
 
-def get_vp_by_name(name):
+def get_vp_by_name(name, doc=revit.doc):
+    #
     bip_id = DB.ElementId(DB.BuiltInParameter.VIEWPORT_ATTR_SHOW_LABEL)
     bip_provider = DB.ParameterValueProvider(bip_id)
     rule = DB.FilterIntegerRule(bip_provider, DB.FilterNumericGreaterOrEqual(), 0)
@@ -282,7 +282,7 @@ def get_vp_by_name(name):
 
 
 
-    collector = DB.FilteredElementCollector(revit.doc) \
+    collector = DB.FilteredElementCollector(doc) \
         .WherePasses(and_filter) \
         .WhereElementIsElementType()\
         .FirstElement()
