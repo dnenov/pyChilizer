@@ -1,0 +1,5 @@
+title: "Area Data to Room"
+tooltip: |
+  Copy text parameter values from Area to Rooms. Rooms belong to an Area if the Room Location Point is within the Area Boundaries. Works with Links.
+
+  Author: Daria Ivanciucovas

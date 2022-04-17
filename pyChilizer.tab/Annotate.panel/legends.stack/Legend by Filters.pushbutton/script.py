@@ -2,11 +2,9 @@
 View Filters with no overrides will be discarded."""
 
 from pyrevit import revit, DB, UI, forms
-from collections import defaultdict
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
-from collections import OrderedDict
 from pyrevit.framework import List
-
+from Autodesk.Revit import Exceptions
 
 def get_solid_fill_pat(doc=revit.doc):
     # get fill pattern element Solid Fill

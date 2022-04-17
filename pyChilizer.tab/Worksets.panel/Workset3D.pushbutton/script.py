@@ -44,7 +44,7 @@ def RemoveViewTemplate(viewtype_id):
     view_type = doc.GetElement(viewtype_id)
     template_id = view_type.DefaultTemplateId
     if template_id.IntegerValue != -1:
-        if forms.alert("You are about to remove the ViewTempalte associated with this View Type. Is that cool with ya?",
+        if forms.alert("You are about to remove the ViewTemplate associated with this View Type. Is that cool with ya?",
                     ok=False, yes=True, no=True, exitscript=True):
             with revit.Transaction("Remove ViewTemplate"):
                 view_type.DefaultTemplateId = DB.ElementId(-1)
