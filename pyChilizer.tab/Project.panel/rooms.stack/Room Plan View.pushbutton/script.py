@@ -10,9 +10,7 @@ output = script.get_output()
 logger = script.get_logger()
 bound_opt = DB.SpatialElementBoundaryOptions()
 # use preselected elements, filtering rooms only
-selection = select.select_rooms_filter()
-if not selection:
-    forms.alert("You need to select at least one Room.", exitscript=True)
+selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Plan views")
 
 # TODO: try using room boundaries for crop, if fails use BBox, correct the bbox rotation on fail
 

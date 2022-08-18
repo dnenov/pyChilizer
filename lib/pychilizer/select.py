@@ -41,18 +41,8 @@ def select_with_cat_filter(cat, message):
         except Exceptions.OperationCanceledException:
             forms.alert("Cancelled", ok=True, warn_icon=False, exitscript=True)
     if not selection:
-        forms.alert("You need to select at least one Room.", exitscript=True)
+        forms.alert("You need to select at least one Element.", exitscript=True)
     return selection
-
-def select_rooms_filter():
-    # select elements while applying category filter
-    try:
-        with forms.WarningBar(title="Pick Rooms to transform"):
-            selection = [revit.doc.GetElement(reference) for reference in rpw.revit.uidoc.Selection.PickObjects(
-                ObjectType.Element, RoomsFilter())]
-            return selection
-    except Exceptions.OperationCanceledException:
-        forms.alert("Cancelled", ok=True, warn_icon=False, exitscript=True)
 
 
 def preselection_with_filter(cat):

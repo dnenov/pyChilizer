@@ -44,9 +44,9 @@ def RemoveViewTemplate(viewtype_id):
     view_type = doc.GetElement(viewtype_id)
     template_id = view_type.DefaultTemplateId
     if template_id.IntegerValue != -1:
-        if forms.alert("You are about to remove the ViewTempalte associated with this View Type. Is that cool with ya?",
+        if forms.alert("You are about to remove the View Template associated with this View Type. Is that cool with ya?",
                     ok=False, yes=True, no=True, exitscript=True):
-            with revit.Transaction("Remove ViewTemplate"):
+            with revit.Transaction("Remove View Template"):
                 view_type.DefaultTemplateId = DB.ElementId(-1)
 
 
@@ -84,4 +84,4 @@ if forms.check_workshared(doc, 'Model is not workshared.'):
                 view = DB.View3D.CreateIsometric(doc, viewtype_id)
                 view.Name = "WORKSET VIEW - " + name
                 SetWorksetVisibility(view, workset)
-        forms.alert('Successfully created Workset Views')
+        forms.alert('Successfully created Workset Views', warn_icon=False)

@@ -2,38 +2,18 @@
 View Filters with no overrides will be discarded."""
 
 from pyrevit import revit, DB, UI, forms
-from collections import defaultdict
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
-from collections import OrderedDict
 from pyrevit.framework import List
+from Autodesk.Revit import Exceptions
+from pychilizer import units, database
 
 
-def get_solid_fill_pat(doc=revit.doc):
-    # get fill pattern element Solid Fill
-    # updated to work in other languages
-    fill_pats = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
-    solid_pat = [pat for pat in fill_pats if pat.GetFillPattern().IsSolidFill]
-    return solid_pat[0]
-
-
-def translate_rectg_vert (rec, vert_offset):
+def translate_rectg_vert(rec, vert_offset):
     # offset recgtangles with a given vertical offset
     position = vert_offset
-    vector = DB.XYZ(0,-1,0) * position
+    vector = DB.XYZ(0, -1, 0) * position
     transform = DB.Transform.CreateTranslation(vector)
     return [cv.CreateTransformed(transform) for cv in rec]
-
-
-def any_fill_type():
-    # get any Filled Region Type
-    return DB.FilteredElementCollector(revit.doc).OfClass(DB.FilledRegionType).FirstElement()
-
-
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
-    return converted
 
 
 def draw_rectangle(y_offset, fill_type, view, line_style):
@@ -44,13 +24,6 @@ def draw_rectangle(y_offset, fill_type, view, line_style):
     new_reg.SetLineStyleId(line_style.Id)
     return new_reg
 
-
-def invis_style(doc=revit.doc):
-    # get invisible lines graphics style
-    for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
-        # find style using the category Id
-        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
-            return gs
 
 col_views = DB.FilteredElementCollector(revit.doc).OfClass(DB.View).WhereElementIsNotElementType()
 
@@ -74,7 +47,7 @@ forms.alert_ifnot(view_dict1, "No views with filters", exitscript=True)
 
 # get all text styles to choose from
 txt_types = DB.FilteredElementCollector(revit.doc).OfClass(DB.TextNoteType)
-text_style_dict= {txt_t.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString(): txt_t for txt_t in txt_types}
+text_style_dict = {txt_t.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString(): txt_t for txt_t in txt_types}
 
 # construct rwp UI
 components = [
@@ -109,22 +82,38 @@ legend_od = {}
 
 for f in view_filters:
     overrides = src_view.GetFilterOverrides(f)
+    filter_name = None
+    filter_colour = None
+    filter_pat_id = None
     # record override colour while discarding filters with no overrides
-    if colour_source == "Projection" and overrides.SurfaceForegroundPatternColor.IsValid:
+    if colour_source == "Projection" and (
+            overrides.SurfaceForegroundPatternColor.IsValid or overrides.SurfaceBackgroundPatternColor.IsValid):
         filter_colour = overrides.SurfaceForegroundPatternColor
+        filter_pat_id = overrides.SurfaceForegroundPatternId
+        # if the foreground override is empty, use background override
+        if not filter_colour.IsValid:
+            filter_colour = overrides.SurfaceBackgroundPatternColor
+            filter_pat_id = overrides.SurfaceBackgroundPatternId
+
         filter_name = revit.doc.GetElement(f).Name
-        legend_od[filter_name] = filter_colour
-    elif colour_source == "Cut" and overrides.CutForegroundPatternColor.IsValid:
+        legend_od[filter_name] = {filter_colour: filter_pat_id}
+    # same for cut settings
+    elif colour_source == "Cut" and (
+            overrides.CutForegroundPatternColor.IsValid or overrides.CutBackgroundPatternColor.IsValid):
         filter_colour = overrides.CutForegroundPatternColor
+        filter_pat_id = overrides.CutForegroundPatternId
+        if not filter_colour.IsValid:
+            filter_colour = overrides.CutBackgroundPatternColor
+            filter_pat_id = overrides.CutBackgroundPatternId
         filter_name = revit.doc.GetElement(f).Name
-        legend_od[filter_name] = filter_colour
+        legend_od[filter_name] = {filter_colour: filter_pat_id}
 
 # dims and scale
 scale = float(view.Scale) / 100
-w = convert_length_to_internal(box_width) * scale
-h = convert_length_to_internal(box_height) * scale
+w = units.convert_length_to_internal(box_width) * scale
+h = units.convert_length_to_internal(box_height) * scale
 text_offset = 1 * scale
-shift = (convert_length_to_internal(box_offset + box_height)) * scale
+shift = (units.convert_length_to_internal(box_offset + box_height)) * scale
 
 with forms.WarningBar(title="Pick Point"):
     try:
@@ -148,9 +137,9 @@ rectangle = [l1, l2, l3, l4]
 offset = 0
 
 # geting these two def out of the loop to avoid repetition
-i_s = invis_style()
-a_f_t = any_fill_type()
-solid_fill = get_solid_fill_pat()
+i_s = database.invis_style()
+a_f_t = database.any_fill_type()
+solid_fill = database.get_solid_fill_pat()
 
 with revit.Transaction("Draw Legend"):
     for v_filter in sorted(legend_od):
@@ -160,13 +149,16 @@ with revit.Transaction("Draw Legend"):
 
         # override fill and colour
         ogs = DB.OverrideGraphicSettings()
-        colour = legend_od[v_filter]
-        ogs.SetSurfaceForegroundPatternColor(legend_od[v_filter])
-        ogs.SetSurfaceForegroundPatternId(solid_fill.Id)
+        colour = legend_od[v_filter].keys()[0]
+        ogs.SetSurfaceForegroundPatternColor(colour)
+        pat_id = legend_od[v_filter].values()[0]
+        if pat_id == DB.ElementId.InvalidElementId:
+            pat_id = solid_fill.Id
+        ogs.SetSurfaceForegroundPatternId(pat_id)
         view.SetElementOverrides(new_reg.Id, ogs)
 
         # place text next to filled regions
-        label_position = DB.XYZ(pt.X+w + text_offset, pt.Y-(offset - h), 0)
+        label_position = DB.XYZ(pt.X + w + text_offset, pt.Y - (offset - h), 0)
         label_txt = str(v_filter)
         text_note = DB.TextNote.Create(revit.doc, view.Id, label_position, label_txt, chosen_text_style.Id)
 

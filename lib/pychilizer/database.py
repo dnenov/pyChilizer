@@ -4,6 +4,18 @@ from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 from pyrevit.revit.db import query
 
 
+def any_fill_type(doc=revit.doc):
+    # get any Filled Region Type
+    return DB.FilteredElementCollector(doc).OfClass(DB.FilledRegionType).FirstElement()
+
+
+def invis_style(doc=revit.doc):
+    # get invisible lines graphics style
+    for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
+        # find style using the category Id
+        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
+            return gs
+
 
 def get_sheet(some_number):
     sheet_nr_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER: str(some_number)})
@@ -51,6 +63,13 @@ def get_fam_any_type(family_name):
 
     return collector
 
+
+def get_solid_fill_pat(doc=revit.doc):
+    # get fill pattern element Solid Fill
+    # updated to work in other languages
+    fill_pats = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
+    solid_pat = [pat for pat in fill_pats if pat.GetFillPattern().IsSolidFill]
+    return solid_pat[0]
 
 
 def param_set_by_cat(cat):
