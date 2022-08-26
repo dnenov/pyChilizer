@@ -231,7 +231,7 @@ def get_mass_template_path():
         return fam_template_path
 
 
-def vt_name_match(vt_name, doc):
+def vt_name_match(vt_name, doc=revit.doc):
     # return a view template with a given name, None if not found
     views = DB.FilteredElementCollector(doc).OfClass(DB.View)
     vt_match = None
@@ -241,7 +241,7 @@ def vt_name_match(vt_name, doc):
     return vt_match
 
     
-def vp_name_match(vp_name, doc):
+def vp_name_match(vp_name, doc=revit.doc):
     # return a view template with a given name, None if not found
     views = DB.FilteredElementCollector(doc).OfClass(DB.Viewport)
     for v in views:
@@ -250,7 +250,7 @@ def vp_name_match(vp_name, doc):
     return views.FirstElement().Name
 
 
-def tb_name_match(tb_name, doc):
+def tb_name_match(tb_name, doc=revit.doc):
     titleblocks = DB.FilteredElementCollector(doc).OfCategory(
         DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
     tb_match = None

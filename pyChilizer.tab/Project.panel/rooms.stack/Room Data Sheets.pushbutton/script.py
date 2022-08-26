@@ -4,7 +4,7 @@ import locator, ui
 from itertools import izip
 import sys
 from pychilizer import units, select, geo, database
-
+from Autodesk.Revit import Exceptions
 
 ui = ui.UI(script)
 ui.is_metric = units.is_metric
@@ -18,21 +18,22 @@ selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Ro
 # collect all view templates for plans and sections
 viewsections = DB.FilteredElementCollector(doc).OfClass(DB.ViewSection)  # collect sections
 ui.viewsection_dict = {v.Name: v for v in viewsections if v.IsTemplate}  # only fetch the IsTemplate sections
-
 viewplans = DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan)  # collect plans
 ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate}  # only fetch IsTemplate plans
 
 # TODO: fix the default value
-ui.viewport_dict = {database.get_name(v): v for v in database.get_viewport_types(doc)} # use a special collector w viewport param
+ui.viewport_dict = {database.get_name(v): v for v in
+                    database.get_viewport_types(doc)}  # use a special collector w viewport param
 # add none as an option
 ui.viewsection_dict["<None>"] = None
 ui.viewplan_dict["<None>"] = None
-
 ui.set_viewtemplates()
 
 # collect titleblocks in a dictionary
 titleblocks = DB.FilteredElementCollector(doc).OfCategory(
-    DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
+    DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType().ToElements()
+if not titleblocks:
+    forms.alert("There are no Titleblocks loaded in the model.", exitscript=True)
 ui.titleblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
 ui.set_titleblocks()
 
@@ -49,7 +50,7 @@ components = [
     ComboBox(name="tb", options=sorted(ui.titleblock_dict), default=database.tb_name_match(ui.titleblock, doc)),
     Label("Sheet Number"),
     TextBox("sheet_number", Text=ui.sheet_number),
-    Label("Crop offset"+ unit_sym),
+    Label("Crop offset" + unit_sym),
     TextBox("crop_offset", Text=str(ui.crop_offset)),
     Label("Titleblock (internal) offset" + unit_sym),
     TextBox("titleblock_offset", Text=str(ui.titleblock_offset)),
@@ -63,7 +64,8 @@ components = [
     Label("View Template for Plans"),
     ComboBox(name="vt_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewplan, doc)),
     Label("View Template for Reflected Ceiling Plans"),
-    ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict), default=database.vt_name_match(ui.viewceiling, doc)),
+    ComboBox(name="vt_rcp_plans", options=sorted(ui.viewplan_dict),
+             default=database.vt_name_match(ui.viewceiling, doc)),
     Label("View Template for Elevations"),
     ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=database.vt_name_match(ui.viewsection, doc)),
     Label("Viewport Type"),
@@ -128,7 +130,7 @@ for room in selection:
     with revit.Transaction("Create Plan", doc):
         level = room.Level
         rm_loc = room.Location.Point
-        angle = geo.room_rotation_angle(room) # helper method get room rotation by longest boundary
+        angle = geo.room_rotation_angle(room)  # helper method get room rotation by longest boundary
 
         # Create Floor Plan
         viewplan = DB.ViewPlan.Create(doc, fl_plan_type.Id, level.Id)
@@ -138,7 +140,7 @@ for room in selection:
         viewRCP = DB.ViewPlan.Create(doc, ceiling_plan_type.Id, level.Id)
         viewRCP.Scale = view_scale
 
-        if layout_ori == "Cross": # for cross layout, add the 3D axo
+        if layout_ori == "Cross":  # for cross layout, add the 3D axo
             threeD = geo.create_room_axo_rotate(room, angle, view_scale, doc)
 
     # find crop box element (method with transactions, must be outside transaction)
@@ -217,10 +219,13 @@ for room in selection:
             # create marker
             new_marker = DB.ElevationMarker.CreateElevationMarker(doc, elev_type.Id, rm_loc, view_scale)
             # create 4 elevations
-            for i in range(4):
-                elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
-                elevations_col.append(elevation)
-
+            try:
+                for i in range(4):
+                    elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
+                    elevations_col.append(elevation)
+            except Exceptions.ArgumentException:
+                forms.alert("Elevation Marker is invalid. Please review the Elevation Marker and retry",
+                            exitscript=True)
             # rotate marker with room rotation angle
             doc.Regenerate()
             marker_axis = DB.Line.CreateBound(rm_loc, rm_loc + DB.XYZ.BasisZ)

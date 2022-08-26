@@ -30,7 +30,7 @@ class CatFilter(ISelectionFilter):
 def select_with_cat_filter(cat, message):
     pre_selection = preselection_with_filter(cat)
     if pre_selection and forms.alert(
-            "You have selected {} elements. Do you want to use them?".format(len(pre_selection))):
+            "You have selected {} elements. Do you want to use them?".format(len(pre_selection)), no=True):
         selection = pre_selection
     else:
         # select elements while applying category filter
