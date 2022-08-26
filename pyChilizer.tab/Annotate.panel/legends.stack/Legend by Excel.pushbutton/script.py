@@ -6,19 +6,11 @@ from pyrevit import revit, DB, forms, script
 import xlrd
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 from collections import OrderedDict
+from Autodesk.Revit import Exceptions
+from pychilizer import units, database
+
 
 config = script.get_config()
-
-def convert_length_to_internal(from_units):
-    # convert length units from project  to internal
-    d_units = DB.Document.GetUnits(revit.doc).GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
-    converted = DB.UnitUtils.ConvertToInternalUnits(from_units, d_units)
-    return converted
-
-
-def any_fill_type():
-    # get any Filled Region Type
-    return DB.FilteredElementCollector(revit.doc).OfClass(DB.FilledRegionType).FirstElement()
 
 
 def translate_rectg_vert(rec, vert_offset):
@@ -27,14 +19,6 @@ def translate_rectg_vert(rec, vert_offset):
     vector = DB.XYZ(0, -1, 0) * position
     transform = DB.Transform.CreateTranslation(vector)
     return [cv.CreateTransformed(transform) for cv in rec]
-
-
-def get_solid_fill_pat(doc=revit.doc):
-    # get fill pattern element Solid Fill
-    # updated to work in other languages
-    fill_pats = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
-    solid_pat = [pat for pat in fill_pats if pat.GetFillPattern().IsSolidFill]
-    return solid_pat[0]
 
 
 def reformat_colour(col_sting):
@@ -134,10 +118,10 @@ if path:
 
     # dims and scale
     scale = float(view.Scale) / 100
-    w = convert_length_to_internal(box_width) * scale
-    h = convert_length_to_internal(box_height) * scale
+    w = units.convert_length_to_internal(box_width) * scale
+    h = units.convert_length_to_internal(box_height) * scale
     text_offset = 1 * scale
-    shift = (convert_length_to_internal(box_offset + box_height)) * scale
+    shift = (units.convert_length_to_internal(box_offset + box_height)) * scale
 
     with forms.WarningBar(title="Pick Point"):
         try:
@@ -163,8 +147,8 @@ if path:
     offset = 0
 
     i_s = invis_style()
-    a_f_t = any_fill_type()
-    solid_fill = get_solid_fill_pat()
+    a_f_t = database.any_fill_type()
+    solid_fill = database.get_solid_fill_pat()
 
     with revit.Transaction("Draw Legend"):
         for box_name in colour_scheme_od:

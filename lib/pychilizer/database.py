@@ -4,6 +4,18 @@ from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 from pyrevit.revit.db import query
 
 
+def any_fill_type(doc=revit.doc):
+    # get any Filled Region Type
+    return DB.FilteredElementCollector(doc).OfClass(DB.FilledRegionType).FirstElement()
+
+
+def invis_style(doc=revit.doc):
+    # get invisible lines graphics style
+    for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
+        # find style using the category Id
+        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
+            return gs
+
 
 def get_sheet(some_number):
     sheet_nr_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER: str(some_number)})
@@ -51,6 +63,13 @@ def get_fam_any_type(family_name):
 
     return collector
 
+
+def get_solid_fill_pat(doc=revit.doc):
+    # get fill pattern element Solid Fill
+    # updated to work in other languages
+    fill_pats = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
+    solid_pat = [pat for pat in fill_pats if pat.GetFillPattern().IsSolidFill]
+    return solid_pat[0]
 
 
 def param_set_by_cat(cat):
@@ -212,7 +231,7 @@ def get_mass_template_path():
         return fam_template_path
 
 
-def vt_name_match(vt_name, doc):
+def vt_name_match(vt_name, doc=revit.doc):
     # return a view template with a given name, None if not found
     views = DB.FilteredElementCollector(doc).OfClass(DB.View)
     vt_match = None
@@ -222,7 +241,7 @@ def vt_name_match(vt_name, doc):
     return vt_match
 
     
-def vp_name_match(vp_name, doc):
+def vp_name_match(vp_name, doc=revit.doc):
     # return a view template with a given name, None if not found
     views = DB.FilteredElementCollector(doc).OfClass(DB.Viewport)
     for v in views:
@@ -231,7 +250,7 @@ def vp_name_match(vp_name, doc):
     return views.FirstElement().Name
 
 
-def tb_name_match(tb_name, doc):
+def tb_name_match(tb_name, doc=revit.doc):
     titleblocks = DB.FilteredElementCollector(doc).OfCategory(
         DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
     tb_match = None

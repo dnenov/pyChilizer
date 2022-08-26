@@ -1,7 +1,7 @@
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 
 
-def convert_length_to_internal(value, doc):
+def convert_length_to_internal(value, doc=revit.doc):
     # convert length units from display units to internal
     display_units = get_length_units(doc)
     converted = DB.UnitUtils.ConvertToInternalUnits(value, display_units)
