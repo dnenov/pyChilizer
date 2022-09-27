@@ -40,7 +40,10 @@ def get_view(some_name):
 def get_fam_types(family_name):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
-    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    if HOST_APP.is_newer_than(2022):
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name)
+    else:
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
     fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
     collector = DB.FilteredElementCollector(revit.doc) \
@@ -53,7 +56,10 @@ def get_fam_types(family_name):
 def get_fam_any_type(family_name):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
-    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    if HOST_APP.is_newer_than(2022):
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name)
+    else:
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
     fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
     collector = DB.FilteredElementCollector(revit.doc) \
@@ -294,7 +300,10 @@ def get_vp_by_name(name, doc=revit.doc):
 
     type_bip_id = DB.ElementId(DB.BuiltInParameter.ALL_MODEL_TYPE_NAME)
     type_bip_provider = DB.ParameterValueProvider(type_bip_id)
-    type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), name, True)
+    if HOST_APP.is_newer_than(2022):
+        type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), name)
+    else:
+        type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), name, True)
     type_filter = DB.ElementParameterFilter(type_filter_rule)
 
     and_filter = DB.LogicalAndFilter(param_filter, type_filter)

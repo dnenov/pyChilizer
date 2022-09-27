@@ -2,7 +2,7 @@ __title__ = "Tag Legend"
 __doc__ = "Pick from a list of parameters to annotate legend components in a legend. As tags are not available for legend views, parameter values will be shown as Text Notes"
 
 from itertools import izip
-from pyrevit import revit, DB, script, forms
+from pyrevit import revit, DB, script, HOST_APP, forms
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, CheckBox)
 import sys
 
@@ -64,12 +64,18 @@ types_on_legend = []
 for f, t in izip(fam_names, type_names):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
-    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), f, True)
+    if HOST_APP.is_newer_than(2022):
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), f)
+    else:
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), f, True)
     fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
     type_bip_id = DB.ElementId(DB.BuiltInParameter.ALL_MODEL_TYPE_NAME)
     type_bip_provider = DB.ParameterValueProvider(type_bip_id)
-    type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), t, True)
+    if HOST_APP.is_newer_than(2022):
+        type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), t)
+    else:
+        type_filter_rule = DB.FilterStringRule(type_bip_provider, DB.FilterStringEquals(), t, True)
     type_filter = DB.ElementParameterFilter(type_filter_rule)
 
     and_filter = DB.LogicalAndFilter(fam_filter, type_filter)
