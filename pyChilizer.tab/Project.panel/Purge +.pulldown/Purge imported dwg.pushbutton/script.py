@@ -20,7 +20,10 @@ else:
     if forms.alert(message, ok=False, yes=True, no=True, exitscript=True):
         with revit.Transaction("Remove dwg imports"):
             for id in cad_imports:
-                doc.Delete(cad_imports)
+                try:
+                    doc.Delete(cad_imports)
+                except:
+                    continue
 
 
 
