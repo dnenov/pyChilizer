@@ -4,7 +4,7 @@ from pyrevit import forms
 from pyrevit import revit, DB
 from pyrevit import script
 import random
-from pychilizer import database
+from pychilizer import database, colorize
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
@@ -19,110 +19,8 @@ doc = revit.doc
 # [ ] method gradient or random
 # [ ] include which types to colorize
 # [ ] test in R2022 R2023
+# [ ] fix dependency on the initial 3D view
 
-
-def hex_to_rgb(hex):
-    return [int(hex[i:i + 2], 16) for i in range(1, 6, 2)]
-
-
-def rgb_to_hex(rgb):
-    rgb = [int(x) for x in rgb]
-    return "#" + "".join(["0{0:x}".format(v) if v < 16 else "{0:x}".format(v) for v in rgb])
-
-
-def color_dict(gradient):
-    """Takes in a list of RGB sub-lists and returns dictionary of
-        colors in RGB and hex form for use in a graphing function
-        defined later on """
-    return {
-        "hex": [rgb_to_hex(rgb) for rgb in gradient],
-        "r": [rgb[0] for rgb in gradient],
-        "g": [rgb[1] for rgb in gradient],
-        "b": [rgb[2] for rgb in gradient],
-    }
-
-
-def linear_gradient(start_hex, finish_hex, n=10):
-    """ returns a gradient list of (n) colors between
-        two hex colors. start_hex and finish_hex
-        should be the full six-digit color string,
-        including the number sign ("#FFFFFF") """
-    # Starting and ending colors in RGB form
-    s = hex_to_rgb(start_hex)
-    f = hex_to_rgb(finish_hex)
-    # Initilize a list of the output colors with the starting color
-    rgb_list = [s]
-    # Calcuate a color at each evenly spaced value of t from 1 to n
-    for t in range(1, n):
-        # Interpolate RGB vector for color at the current value of t
-        curr_vector = [int(s[j] + (float(t) / (n - 1)) * (f[j] - s[j])) for j in range(3)]
-        # Add it to our list of output colors
-        rgb_list.append(curr_vector)
-    return color_dict(rgb_list)
-
-
-def polylinear_gradient(colors, n):
-    ''' returns a list of colors forming linear gradients between
-          all sequential pairs of colors. "n" specifies the total
-          number of desired output colors '''
-    # The number of colors per individual linear gradient
-    n_out = int(float(n) / (len(colors) - 1)) + 2
-    # returns dictionary defined by color_dict()
-    gradient_dict = linear_gradient(colors[0], colors[1], n_out)
-
-    if len(colors) > 1:
-        for col in range(1, len(colors) - 1):
-            next = linear_gradient(colors[col], colors[col + 1], n_out)
-            for k in ("hex", "r", "g", "b"):
-                # Exclude first point to avoid duplicates
-                gradient_dict[k] += next[k][1:]
-    return gradient_dict
-
-
-# def generate_rand_colour_hsv(n):
-#     hsv_tuples = [(i * 1.0 / n, 0.75, 0.75) for i in range(n)]
-#     # print (hsv_tuples)
-#     rgb_out = []
-#     for rgb in hsv_tuples:
-#         rgb = map(lambda x: int(x * 255), colorsys.hsv_to_rgb(*rgb))
-#         revit_colour = DB.Color(rgb[0], rgb[1], rgb[2])
-#         rgb_out.append(revit_colour)
-#     return rgb_out
-
-
-def revit_colour(hex):
-    rgb = hex_to_rgb(hex)
-    revit_clr = DB.Color(rgb[0], rgb[1], rgb[2])
-    return revit_clr
-
-
-def get_3Dviewtype_id():
-    view_fam_type = DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType)
-    return next(vt.Id for vt in view_fam_type if vt.ViewFamily == DB.ViewFamily.ThreeDimensional)
-
-
-def delete_existing_view(view_name):
-    for view in DB.FilteredElementCollector(revit.doc).OfClass(DB.View).ToElements():
-        if view.Name == view_name:
-            try:
-                doc.Delete(view.Id)
-                break
-            except:
-
-                forms.alert('Current view was cannot be deleted. Close view and try again.')
-                return False
-    return True
-
-
-def remove_vt(vt_id):
-    viewtype = doc.GetElement(vt_id)
-    template_id = viewtype.DefaultTemplateId
-    if template_id.IntegerValue != -1:
-        if forms.alert(
-                "You are about to remove the View Template"
-                " associated with this View Type. Is that cool with ya?",
-                ok=False, yes=True, no=True, exitscript=True):
-            viewtype.DefaultTemplateId = DB.ElementId(-1)
 
 category_opt_dict = {
     "Windows" : BIC.OST_Windows,
@@ -152,10 +50,10 @@ hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
 
 with revit.Transaction("Create Colorized 3D"):
     view_name = "Colorize {} by Type".format(chosen_category.Name)
-    if delete_existing_view(view_name):
+    if database.delete_existing_view(view_name):
         # create new 3D
-        viewtype_id = get_3Dviewtype_id()
-        remove_vt(viewtype_id)
+        viewtype_id = database.get_3Dviewtype_id()
+        database.remove_viewtemplate(viewtype_id)
         view = DB.View3D.CreateIsometric(doc, viewtype_id)
         view.Name = view_name
 
@@ -228,10 +126,10 @@ if n < 14:
     colours = basic_colours
 else:
     colours = rainbow
-col_dict = polylinear_gradient(colours, n)
+col_dict = colorize.polylinear_gradient(colours, n)
 chop_col_list = col_dict["hex"][0:n]
 
-revit_colours = [revit_colour(h) for h in chop_col_list]
+revit_colours = [colorize.revit_colour(h) for h in chop_col_list]
 for x in range(10):
     random.shuffle(revit_colours)
 

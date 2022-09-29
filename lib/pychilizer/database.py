@@ -307,3 +307,32 @@ def get_vp_by_name(name, doc=revit.doc):
         .FirstElement()
 
     return collector
+
+
+def get_3Dviewtype_id(doc=revit.doc):
+    view_fam_type = DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType)
+    return next(vt.Id for vt in view_fam_type if vt.ViewFamily == DB.ViewFamily.ThreeDimensional)
+
+
+def delete_existing_view(view_name, doc=revit.doc):
+    for view in DB.FilteredElementCollector(doc).OfClass(DB.View).ToElements():
+        if view.Name == view_name:
+            try:
+                doc.Delete(view.Id)
+                break
+            except:
+
+                forms.alert('Current view was cannot be deleted. Close view and try again.')
+                return False
+    return True
+
+
+def remove_viewtemplate(vt_id, doc=revit.doc):
+    viewtype = doc.GetElement(vt_id)
+    template_id = viewtype.DefaultTemplateId
+    if template_id.IntegerValue != -1:
+        if forms.alert(
+                "You are about to remove the View Template"
+                " associated with this View Type. Is that cool with ya?",
+                ok=False, yes=True, no=True, exitscript=True):
+            viewtype.DefaultTemplateId = DB.ElementId(-1)
