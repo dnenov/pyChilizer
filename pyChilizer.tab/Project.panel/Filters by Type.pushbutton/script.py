@@ -199,7 +199,7 @@ with revit.Transaction("Isolate and Colorize Types"):
             if filter_exists:
                 # delete filters
                 doc.Delete(filter_exists.Id)
-           
+
             type_equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(type_param.Id, type_name, False)
             fam_equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(fam_param.Id, fam_name, False)
             f_rules = List[DB.FilterRule]([type_equals_rule, fam_equals_rule])
