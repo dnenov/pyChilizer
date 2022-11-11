@@ -123,7 +123,7 @@ with revit.Transaction("Isolate and Colorize Types"):
         override = DB.OverrideGraphicSettings()
         # override.SetProjectionLineColor(c)
         override.SetSurfaceForegroundPatternColor(c)
-        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
+        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc).Id)
         for inst in type_instance:
             view.SetElementOverrides(inst, override)
 # revit.active_view = view

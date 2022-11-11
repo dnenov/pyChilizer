@@ -1,6 +1,3 @@
-import sys
-from collections import defaultdict
-from pyrevit import HOST_APP
 from pyrevit import forms
 from pyrevit import revit, DB
 from pyrevit import script
@@ -8,13 +5,15 @@ import random
 from pychilizer import database
 from pychilizer import colorize
 from pyrevit.framework import List
-
+import config
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 
 doc = revit.doc
 view = revit.active_view
+
+overrides_option = config.get_config()
 
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
@@ -171,9 +170,13 @@ with revit.Transaction("Isolate and Colorize Types"):
         el_type = doc.GetElement(type_id)
         type_param = el_type.get_Parameter(type_name_param)
         type_name = type_param.AsValueString()
+        if not type_name:
+            type_name = type_param.AsString()
         # also record family name for filters
         fam_param = el_type.get_Parameter(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
         fam_name = fam_param.AsValueString()
+        if not fam_name:
+            fam_name = fam_param.AsString()
         # create a filter for each type
         filter_name = selected_cat + " - " + t_name_unique
         filter_id = None
@@ -196,7 +199,7 @@ with revit.Transaction("Isolate and Colorize Types"):
             if filter_exists:
                 # delete filters
                 doc.Delete(filter_exists.Id)
-
+           
             type_equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(type_param.Id, type_name, False)
             fam_equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(fam_param.Id, fam_name, False)
             f_rules = List[DB.FilterRule]([type_equals_rule, fam_equals_rule])

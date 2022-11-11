@@ -50,10 +50,10 @@ hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
 
 with revit.Transaction("Create Colorized 3D"):
     view_name = "Colorize {} by Type".format(chosen_category.Name)
-    if database.delete_existing_view(view_name):
+    if database.delete_existing_view(view_name, doc=doc):
         # create new 3D
-        viewtype_id = database.get_3Dviewtype_id()
-        database.remove_viewtemplate(viewtype_id)
+        viewtype_id = database.get_3Dviewtype_id(doc=doc)
+        database.remove_viewtemplate(viewtype_id, doc=doc)
         view = DB.View3D.CreateIsometric(doc, viewtype_id)
         view.Name = view_name
 
@@ -139,7 +139,7 @@ with revit.Transaction("Isolate and Colorize Types"):
         override = DB.OverrideGraphicSettings()
         # override.SetProjectionLineColor(c)
         override.SetSurfaceForegroundPatternColor(c)
-        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
+        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc=doc).Id)
         for inst in type_instance:
             view.SetElementOverrides(inst, override)
 revit.active_view = view
