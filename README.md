@@ -9,6 +9,11 @@ pyChilizer is an extension done by Archilizer that contains many bite-size appli
 
 ## How-to
 
+## Preferred Option (Update)
+After pyRevit's update, the best way to install the extension is to do so directly from pyRevit.
+
+![installation](https://user-images.githubusercontent.com/5354594/204851598-72a21d79-8d44-4561-9399-7867482d4ff5.png)
+
 ## Option 1
 To make use of this extension, you will need to install pyRevit first. Then download the lastest release of pyChilizer and install as follows:
 
