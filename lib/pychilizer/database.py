@@ -2,7 +2,7 @@
 
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
 from pyrevit.revit.db import query
-
+from pyrevit.framework import List
 
 def any_fill_type(doc=revit.doc):
     # get any Filled Region Type
@@ -336,3 +336,66 @@ def remove_viewtemplate(vt_id, doc=revit.doc):
                 " associated with this View Type. Is that cool with ya?",
                 ok=False, yes=True, no=True, exitscript=True):
             viewtype.DefaultTemplateId = DB.ElementId(-1)
+
+
+def family_and_type_names(elem, doc):
+    fam_name = doc.GetElement(elem.GetTypeId()).FamilyName
+    type_name = get_name(elem)
+    return (" - ".join([fam_name, type_name]))
+
+
+def create_filter_from_rules(rules):
+    elem_filters = List[DB.ElementFilter]()
+    for rule in rules:
+        elem_param_filter = DB.ElementParameterFilter(rule)
+        elem_filters.Add(elem_param_filter)
+    el_filter = DB.LogicalAndFilter(elem_filters)
+    return el_filter
+
+
+def check_filter_exists(filter_name, doc):
+    all_view_filters = DB.FilteredElementCollector(doc).OfClass(DB.FilterElement).ToElements()
+
+    for vf in all_view_filters:
+        if filter_name == str(vf.Name):
+            return vf
+
+
+def create_filter(filter_name, bics_list, doc):
+    cat_list = List[DB.ElementId](DB.ElementId(cat) for cat in bics_list)
+    filter = DB.ParameterFilterElement.Create(doc, filter_name, cat_list)
+    return filter
+
+
+def filter_from_rules(rules, or_rule=False):
+    elem_filters = List[DB.ElementFilter]()
+    for rule in rules:
+        elem_parameter_filter = DB.ElementParameterFilter(rule)
+        elem_filters.Add(elem_parameter_filter)
+    if or_rule:
+        elem_filter = DB.LogicalOrFilter(elem_filters)
+    else:
+        elem_filter = DB.LogicalAndFilter(elem_filters)
+    return elem_filter
+
+
+def get_param_value_as_string(p):
+    # get the value of the element paramter as a string, regardless of the storage type
+    param_value = None
+    if p.HasValue:
+        if p.StorageType.ToString() == "ElementId":
+            if p.Definition.Name == "Category":
+
+                param_value = p.AsValueString()
+            else:
+                param_value = p.AsElementId().IntegerValue
+        elif p.StorageType.ToString() == "Integer":
+
+            param_value = p.AsInteger()
+        elif p.StorageType.ToString() == "Double":
+
+            param_value = p.AsValueString()
+        elif p.StorageType.ToString() == "String":
+
+            param_value = p.AsString()
+    return param_value

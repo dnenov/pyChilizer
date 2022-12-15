@@ -7,6 +7,46 @@ import random
 from pychilizer import database
 import colorsys
 
+
+# colour presets
+# short colours list (14 colours)
+basic_colours = [
+    "#40DFFF",
+    "#803ABA",
+    "#E6B637",
+    "#A8DA84"
+    "#8337E6",
+    "#EBE70E",
+    "#D037E6",
+    "#074FE0",  # blue
+    "#03A64A",
+    "#662400",
+    "#FF6B1A",
+    "#FF4858",
+    "#747F7F",
+    "#919151"
+]
+# swatches for gradient
+dark = "#42371E"
+red = "#F10800"
+orange = "#F27405"
+yellow = "#FFF14E"
+green = "#016B31"
+pink = "#F587FF"
+blue = "#6DDEF0"
+violet = "#550580"
+cyan = "#40DFFF"
+rainbow = [dark, red, yellow, green, cyan, violet, pink]
+
+
+def basic_colours():
+    return basic_colours
+
+
+def rainbow():
+    return rainbow
+
+
 def hex_to_rgb(hex):
     return [int(hex[i:i + 2], 16) for i in range(1, 6, 2)]
 
@@ -73,7 +113,7 @@ def revit_colour(hex):
 
 def random_colour_hsv(n):
     # return random colour based on
-    hsv_tuples = [(i * 1.0 / n, 0.75, 0.75) for i in range(n)]
+    hsv_tuples = [(i * 1.0 / n, 0.85, 0.85) for i in range(n)]
 
     rgb_out = []
     for rgb in hsv_tuples:

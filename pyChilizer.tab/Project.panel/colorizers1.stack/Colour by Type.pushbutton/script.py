@@ -4,30 +4,24 @@ from pyrevit import forms
 from pyrevit import revit, DB
 from pyrevit import script
 import random
-from pychilizer import database, colorize
+from pychilizer import database
+from pychilizer import colorize
+
+
+
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 doc = revit.doc
-
+view = revit.active_view
 
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
-
-# [x] revise colours to exclude nearby colours
-# [x] include more categories
-# [x] set view to open active
-# [ ] method gradient or random
-# [ ] include which types to colorize
-# [ ] test in R2022 R2023
-# [ ] fix dependency on the initial 3D view
-
 
 category_opt_dict = {
     "Windows" : BIC.OST_Windows,
     "Doors" : BIC.OST_Doors,
     "Floors" : BIC.OST_Floors,
     "Walls" : BIC.OST_Walls,
-    # "Curtain Panels" : BIC.OST_CurtainWallPanels,
     "Generic Model" : BIC.OST_GenericModel,
     "Casework" : BIC.OST_Casework,
     "Furniture" : BIC.OST_Furniture,
@@ -48,27 +42,8 @@ all_cats = doc.Settings.Categories
 chosen_category = all_cats.get_Item(chosen_bic)
 hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
 
-with revit.Transaction("Create Colorized 3D"):
-    view_name = "Colorize {} by Type".format(chosen_category.Name)
-    if database.delete_existing_view(view_name, doc=doc):
-        # create new 3D
-        viewtype_id = database.get_3Dviewtype_id(doc=doc)
-        database.remove_viewtemplate(viewtype_id, doc=doc)
-        view = DB.View3D.CreateIsometric(doc, viewtype_id)
-        view.Name = view_name
 
-    # hide other categories
-    for cat in hide_categories_except:
-        if view.CanCategoryBeHidden(cat.Id):
-            view.SetCategoryHidden(cat.Id, True)
-
-    # get_view_elements = DB.FilteredElementCollector(doc) \
-    #     .OfClass(DB.FamilyInstance) \
-    #     .OfCategory(chosen_bic) \
-    #     .WhereElementIsNotElementType() \
-    #     .ToElements()
-
-    get_view_elements = DB.FilteredElementCollector(doc) \
+get_view_elements = DB.FilteredElementCollector(doc) \
         .OfCategory(chosen_bic) \
         .WhereElementIsNotElementType() \
         .ToElements()
@@ -89,9 +64,9 @@ for el in get_view_elements:
     types_dict[type_id].add(el.Id)
 
 # # old method
-# colours = generate_rand_colour_hsv(len(types_dict))
-# colour dictionary
+# colours = random_colour_hsv(len(types_dict))
 
+# colour dictionary
 n = len(types_dict)
 
 # colour presets
@@ -139,7 +114,7 @@ with revit.Transaction("Isolate and Colorize Types"):
         override = DB.OverrideGraphicSettings()
         # override.SetProjectionLineColor(c)
         override.SetSurfaceForegroundPatternColor(c)
-        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc=doc).Id)
+        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc).Id)
         for inst in type_instance:
             view.SetElementOverrides(inst, override)
-revit.active_view = view
+# revit.active_view = view
