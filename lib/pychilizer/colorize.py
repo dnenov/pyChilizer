@@ -10,41 +10,44 @@ import colorsys
 
 # colour presets
 # short colours list (14 colours)
-basic_colours = [
-    "#40DFFF",
-    "#803ABA",
-    "#E6B637",
-    "#A8DA84"
-    "#8337E6",
-    "#EBE70E",
-    "#D037E6",
-    "#074FE0",  # blue
-    "#03A64A",
-    "#662400",
-    "#FF6B1A",
-    "#FF4858",
-    "#747F7F",
-    "#919151"
-]
+
 # swatches for gradient
-dark = "#42371E"
-red = "#F10800"
-orange = "#F27405"
-yellow = "#FFF14E"
-green = "#016B31"
-pink = "#F587FF"
-blue = "#6DDEF0"
-violet = "#550580"
-cyan = "#40DFFF"
-rainbow = [dark, red, yellow, green, cyan, violet, pink]
+
 
 
 def basic_colours():
+    basic_colours = [
+        "#40DFFF",
+        "#803ABA",
+        "#E6B637",
+        "#A8DA84"
+        "#8337E6",
+        "#EBE70E",
+        "#D037E6",
+        "#074FE0",  # blue
+        "#03A64A",
+        "#662400",
+        "#FF6B1A",
+        "#FF4858",
+        "#747F7F",
+        "#919151"
+    ]
+
     return basic_colours
 
 
 def rainbow():
-    return rainbow
+    dark = "#42371E"
+    red = "#F10800"
+    orange = "#F27405"
+    yellow = "#FFF14E"
+    green = "#016B31"
+    pink = "#F587FF"
+    blue = "#6DDEF0"
+    violet = "#550580"
+    cyan = "#40DFFF"
+    rainbow_colours = [dark, red, yellow, green, cyan, violet, pink]
+    return rainbow_colours
 
 
 def hex_to_rgb(hex):

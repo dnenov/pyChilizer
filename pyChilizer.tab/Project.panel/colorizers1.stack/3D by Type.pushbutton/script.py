@@ -10,7 +10,6 @@ logger = script.get_logger()
 BIC = DB.BuiltInCategory
 doc = revit.doc
 
-
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
 # [x] revise colours to exclude nearby colours
@@ -18,6 +17,7 @@ doc = revit.doc
 # [x] set view to open active
 # [ ] include which types to colorize
 # [ ] test in R2022 R2023
+# [ ] work with links?
 # [x] fix dependency on the initial 3D view
 
 

@@ -97,12 +97,14 @@ for type_name in return_types:
 
 # colour dictionary
 n = len(types_dict.keys())
-
+colours = None
 if n < 14:
     colours = colorize.basic_colours()
 else:
     colours = colorize.rainbow()
+print (colours)
 col_dict = colorize.polylinear_gradient(colours, n)
+
 chop_col_list = col_dict["hex"][0:n]
 # gradient method
 revit_colours = [colorize.revit_colour(h) for h in chop_col_list]

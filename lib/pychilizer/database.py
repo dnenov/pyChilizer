@@ -353,7 +353,7 @@ def create_filter_from_rules(rules):
     return el_filter
 
 
-def check_filter_exists(filter_name, doc):
+def check_filter_exists(filter_name, doc=revit.doc):
     all_view_filters = DB.FilteredElementCollector(doc).OfClass(DB.FilterElement).ToElements()
 
     for vf in all_view_filters:
@@ -361,7 +361,7 @@ def check_filter_exists(filter_name, doc):
             return vf
 
 
-def create_filter(filter_name, bics_list, doc):
+def create_filter(filter_name, bics_list, doc=revit.doc):
     cat_list = List[DB.ElementId](DB.ElementId(cat) for cat in bics_list)
     filter = DB.ParameterFilterElement.Create(doc, filter_name, cat_list)
     return filter
@@ -383,19 +383,30 @@ def get_param_value_as_string(p):
     # get the value of the element paramter as a string, regardless of the storage type
     param_value = None
     if p.HasValue:
-        if p.StorageType.ToString() == "ElementId":
+        if p_storage_type(p) == "ElementId":
             if p.Definition.Name == "Category":
 
                 param_value = p.AsValueString()
             else:
                 param_value = p.AsElementId().IntegerValue
-        elif p.StorageType.ToString() == "Integer":
+        elif p_storage_type(p) == "Integer":
 
             param_value = p.AsInteger()
-        elif p.StorageType.ToString() == "Double":
+        elif p_storage_type(p) == "Double":
 
             param_value = p.AsValueString()
-        elif p.StorageType.ToString() == "String":
+        elif p_storage_type(p) == "String":
 
             param_value = p.AsString()
     return param_value
+
+
+def p_storage_type(param):
+    return param.StorageType.ToString()
+
+
+def get_parameter_from_name(el, param_name):
+    params = el.Parameters
+    for p in params:
+        if p.Definition.Name == param_name:
+            return p
