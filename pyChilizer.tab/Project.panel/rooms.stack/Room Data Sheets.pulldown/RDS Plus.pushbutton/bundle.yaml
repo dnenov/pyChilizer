@@ -1,0 +1,9 @@
+title: "Room Data Sheets +"
+tooltip: >+
+  Same as classic Room Data Sheets but placing elevations along all walls. For rooms with irregular shapes.
+  Creates room plans and elevations and places them on a sheet. Assign sheet number and view templates.
+  If room boundary allows, it will be offset
+  to include the walls. 
+
+
+  Author: Daria Ivanciucova

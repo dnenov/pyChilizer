@@ -5,10 +5,67 @@ from itertools import izip
 import sys
 from pychilizer import units, select, geo, database
 from Autodesk.Revit import Exceptions
+import math
+
+
 
 ui = ui.UI(script)
 ui.is_metric = units.is_metric
 doc = __revit__.ActiveUIDocument.Document
+MINIMAL_LENGTH = 1.5
+OFFSET_INWARDS = 1
+UNIQUE_BORDERS_TOLERANCE = 10/304.8
+ELEVATION_SPACING = 0.3
+ELEVATION_ID = 0
+
+def get_alphabetic_labels(nr):
+    alphabet = [chr(i) for i in range(65,91)]
+    double_alphabet = []
+    for i in range(26):
+        c1 = alphabet[i]
+        for j in range(26):
+            c2 = alphabet[j]
+            l = c1+c2
+            double_alphabet.append(l)
+    labels = []
+    if nr<=26:
+        labels = alphabet[:nr]
+    elif nr>26:
+        labels = double_alphabet[:nr]
+    return labels
+
+
+def elevation_offsets(el_widths, spacing):
+    el_offsets = []
+    for i in range(len(el_widths)-1):
+        offset = (el_widths[i]+el_widths[i+1])/2+spacing
+        el_offsets.append(offset)
+    return el_offsets
+
+
+def orient_elevation_to_line (elevation_marker, line, elevation_id):
+    # get the elevation with the elevation id
+    elevation_view = doc.GetElement(elevation_marker.GetViewId(elevation_id))
+    # get the view direction of the elevation view (facing the viewer)
+    view_direction = elevation_view.ViewDirection
+    # note: the origin of the elevation view is NOT the center of the marker
+    # TODO: ORIGIN = BAD
+    bb = elevation_marker.get_BoundingBox(revit.active_view)
+    center = (bb.Max+bb.Min)/2
+
+    # project the origin onto the line and get closest point
+    project = line.Project(center)
+    project_point = project.XYZPoint
+    # construct a line from from the projected point to origin and get its vector
+    projection_direction = DB.Line.CreateBound(project_point, center).Direction
+    vectors_angle = view_direction.AngleOnPlaneTo(projection_direction, DB.XYZ.BasisZ)
+    # calculate the rotation angle
+    rotation_angle = vectors_angle - math.radians(360)
+
+    marker_axis = DB.Line.CreateBound(center, center + DB.XYZ.BasisZ)
+    elevation_marker.Location.Rotate(marker_axis, rotation_angle)
+    return elevation_marker
+
 
 output = script.get_output()
 logger = script.get_logger()  # helps to debug script, not used
@@ -54,10 +111,6 @@ components = [
     TextBox("crop_offset", Text=str(ui.crop_offset)),
     Label("Titleblock (internal) offset" + unit_sym),
     TextBox("titleblock_offset", Text=str(ui.titleblock_offset)),
-    Label("Layout orientation"),
-    ComboBox(name="layout_orientation", options=ui.layout_orientation, default=ui.layout_ori),
-    CheckBox("el_rotation", 'Rotate elevations', default=ui.rotated_elevations),
-    CheckBox("el_as_sec", 'Elevations as Sections', default=ui.el_as_sec),
     Label("Titleblock orientation"),
     ComboBox(name="tb_orientation", options=ui.tblock_orientation, default=ui.titleblock_orientation),
     Separator(),
@@ -87,20 +140,14 @@ if ok:
     chosen_vp_type = ui.viewport_dict[form.values["vp_types"]]
     chosen_crop_offset = units.correct_input_units(form.values["crop_offset"], doc)
     titleblock_offset = units.correct_input_units(form.values["titleblock_offset"], doc)
-    layout_ori = form.values["layout_orientation"]
-    tb_ori = form.values["tb_orientation"]
-    elev_rotate = form.values["el_rotation"]
-    elev_as_sections = form.values["el_as_sec"]
+    tb_orientation = form.values["tb_orientation"]
 else:
     sys.exit()
 
 # collect and take the first view plan type, elevation type, set default scale
 fl_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan, doc)[0]
 ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan, doc)[0]
-if elev_as_sections:
-    elev_type = database.get_view_family_types(DB.ViewFamily.Section, doc)[0]
-else:
-    elev_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
+elev_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
 
 # get default template
 def_temp = doc.GetElement(elev_type.DefaultTemplateId)
@@ -117,10 +164,7 @@ if def_temp:
 ui.set_config("sheet_number", chosen_sheet_nr)
 ui.set_config("crop_offset", form.values["crop_offset"])
 ui.set_config("titleblock_offset", form.values["titleblock_offset"])
-ui.set_config("titleblock_orientation", tb_ori)
-ui.set_config("layout_orientation", layout_ori)
-ui.set_config("rotated_elevations", elev_rotate)
-ui.set_config("el_as_sec", elev_as_sections)
+ui.set_config("titleblock_orientation", tb_orientation)
 ui.set_config("titleblock", form.values["tb"])
 ui.set_config("viewplan", form.values["vt_plans"])
 ui.set_config("viewceiling", form.values["vt_rcp_plans"])
@@ -130,7 +174,7 @@ for room in selection:
     with revit.Transaction("Create Plan", doc):
         level = room.Level
         rm_loc = room.Location.Point
-        angle = geo.room_rotation_angle(room)  # helper method get room rotation by longest boundary
+        room_angle = geo.room_rotation_angle(room)  # helper method get room rotation by longest boundary
 
         # Create Floor Plan
         viewplan = DB.ViewPlan.Create(doc, fl_plan_type.Id, level.Id)
@@ -140,9 +184,6 @@ for room in selection:
         viewRCP = DB.ViewPlan.Create(doc, ceiling_plan_type.Id, level.Id)
         viewRCP.Scale = view_scale
 
-        if layout_ori == "Cross":  # for cross layout, add the 3D axo
-            threeD = geo.create_room_axo_rotate(room, angle, view_scale, doc)
-
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
     crop_box_rcp = geo.find_crop_box(viewRCP)
@@ -151,11 +192,11 @@ for room in selection:
         # rotate the view plan
         axis = geo.get_bb_axis_in_view(room, viewplan)  # get the axis for rotation
         rotated_plan = DB.ElementTransformUtils.RotateElement(
-            doc, crop_box_plan.Id, axis, angle
+            doc, crop_box_plan.Id, axis, room_angle
         )
         # rotate RCP
         rotated_rcp = DB.ElementTransformUtils.RotateElement(
-            doc, crop_box_rcp.Id, axis, angle
+            doc, crop_box_rcp.Id, axis, room_angle
         )
 
         viewplan.CropBoxActive = True
@@ -178,7 +219,7 @@ for room in selection:
             # for some shapes the offset is not obvious and will fail, then use BBox method:
             except:
                 # using a helper method, get the outlines of the room's bounding box,
-                rotated_crop_loop = geo.room_bb_outlines(room, angle)
+                rotated_crop_loop = geo.room_bb_outlines(room, room_angle)
                 # offset the curve loop with given offset
                 offset_loop = DB.CurveLoop.CreateViaOffset(rotated_crop_loop, chosen_crop_offset, DB.XYZ.BasisZ)
                 # set the loop as Crop Shape of the view using CropRegionShapeManager
@@ -196,43 +237,54 @@ for room in selection:
         # rename views
         viewplan.Name = database.unique_view_name(room_name_nr, suffix=" Plan")
         viewRCP.Name = database.unique_view_name(room_name_nr, suffix=" Reflected Ceiling Plan")
-        # if created, rename the axo too
-        if layout_ori == "Cross":
-            threeD.Name = database.unique_view_name(room_name_nr, suffix=" Axo View")
+
         # activate annotation crop
         database.set_anno_crop(viewplan)
         database.set_anno_crop(viewRCP)
 
         # Create Elevations
         elevations_col = []
-        elevation_count = ["A", "B", "C", "D"]
-        if elev_as_sections:
-            elevation_count = database.shift_list(elevation_count, 1)
-            room_bb_loop = geo.room_bb_outlines(room, angle)
-            offset_in = DB.CurveLoop.CreateViaOffset(room_bb_loop, -chosen_crop_offset, DB.XYZ.BasisZ)
-            for border in offset_in:
-                # create a bbox parallel to the border
-                sb = database.create_parallel_bbox(border, room)
-                new_section = DB.ViewSection.CreateSection(doc, elev_type.Id, sb)
-                elevations_col.append(new_section)
-        else:
-            # create marker
-            new_marker = DB.ElevationMarker.CreateElevationMarker(doc, elev_type.Id, rm_loc, view_scale)
-            # create 4 elevations
-            try:
-                for i in range(4):
-                    elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
-                    elevations_col.append(elevation)
-            except Exceptions.ArgumentException:
-                forms.alert("Elevation Marker is invalid. Please review the Elevation Marker and retry",
-                            exitscript=True)
-            # rotate marker with room rotation angle
-            doc.Regenerate()
-            marker_axis = DB.Line.CreateBound(rm_loc, rm_loc + DB.XYZ.BasisZ)
-            new_marker.Location.Rotate(marker_axis, angle)
-            doc.Regenerate()
-        # Rename elevations
+        # THIS PART IS DIFFERENT FROM CLASSIC
+        #room_bb_loop = geo.room_bb_outlines(room, angle) # this is not what i need
+        # offset_in = DB.CurveLoop.CreateViaOffset(room_bb_loop, -OFFSET_INWARDS, DB.XYZ.BasisZ) # probably cannot offset room bound
 
+        # discard segments lying on the same axis of the room
+        #TODO: test
+        unique_borders = geo.get_unique_borders(room_boundaries, UNIQUE_BORDERS_TOLERANCE)
+        border_widths = []
+        for border in unique_borders:
+
+            if isinstance(border, DB.Line) and border.Length >= MINIMAL_LENGTH:
+                # record the boundary lengths (also elevation widths) for later
+                border_widths.append(border.Length)
+                # elevation marker position
+                #TODO: offset from wall
+                border_center = border.Evaluate(0.5, True)
+
+                offset = border.CreateOffset(OFFSET_INWARDS, DB.XYZ(0,0,1))
+                marker_position = offset.Evaluate(0.5, True)
+                if not room.IsPointInRoom(marker_position):
+                    offset = border.CreateOffset(-OFFSET_INWARDS, DB.XYZ(0,0,1))
+                    marker_position = offset.Evaluate(0.5, True)
+
+                # create marker
+                new_marker = DB.ElevationMarker.CreateElevationMarker(doc, elev_type.Id, marker_position, view_scale)
+                # create 1 elevation
+                try:
+                    elevation = new_marker.CreateElevation(doc, viewplan.Id, ELEVATION_ID)
+                    elevations_col.append(elevation)
+
+                except Exceptions.ArgumentException:
+                    forms.alert("Elevation Marker is invalid. Please review the Elevation Marker and retry",
+                                exitscript=True)
+
+                # rotate marker with room rotation angle
+                # TODO: still some cases the rotation is wrong
+                orient_elevation_to_line(new_marker,border,ELEVATION_ID)
+                # TODO: crop elevations
+                doc.Regenerate()
+        # Rename elevations - Room name Elevation N
+        elevation_count = get_alphabetic_labels(len(elevations_col))
         for el, i in izip(elevations_col, elevation_count):
             el.Scale = view_scale
             el_suffix = " Elevation " + i
@@ -240,18 +292,17 @@ for room in selection:
             database.set_anno_crop(el)
 
         sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
+    #todo: substitute this
+    elevation_widths = [1]* len(elevations_col)
+    # elevation_widths = elevation_offsets(border_widths, ELEVATION_SPACING)
 
     # get positions on sheet
-    loc = locator.Locator(sheet, titleblock_offset, tb_ori, layout_ori)
+    loc = locator.Locator(sheet, titleblock_offset, tb_orientation, elevation_widths)
     plan_position = loc.plan
     RCP_position = loc.rcp
     elev_positions = loc.elevations
-    # if using sections, shift the positions with 1 index
-    if elev_as_sections:
-        elev_positions = database.shift_list(elev_positions, 1)
-    threeD_position = loc.threeD
-
     elevations = []  # collect all elevations we create
+
 
     with revit.Transaction("Add Views to Sheet", doc):
         # apply view template
@@ -262,18 +313,10 @@ for room in selection:
         place_plan = DB.Viewport.Create(doc, sheet.Id, viewplan.Id, plan_position)
         place_RCP = DB.Viewport.Create(doc, sheet.Id, viewRCP.Id, RCP_position)
 
-        if layout_ori == "Cross":
-            place_threeD = DB.Viewport.Create(doc, sheet.Id, threeD.Id, threeD_position)
 
         for el, pos, i in izip(elevations_col, elev_positions, elevation_count):
             # place elevations
             place_elevation = DB.Viewport.Create(doc, sheet.Id, el.Id, pos)
-
-            # if user selected, rotate elevations
-            if elev_rotate and i == "A" and layout_ori == "Cross":
-                place_elevation.Rotation = DB.ViewportRotation.Counterclockwise
-            if elev_rotate and i == "C" and layout_ori == "Cross":
-                place_elevation.Rotation = DB.ViewportRotation.Clockwise
 
             # set viewport detail number
             place_elevation.get_Parameter(
@@ -281,7 +324,8 @@ for room in selection:
             ).Set(i)
             elevations.append(place_elevation)
             doc.Regenerate()
-            geo.set_crop_to_bb(room, el, chosen_crop_offset, doc)
+            #TODO: temp disable
+            # geo.set_crop_to_bb(room, el, chosen_crop_offset, doc)
             database.apply_vt(el, chosen_vt_elevation)
 
         # new: change viewport types
@@ -294,7 +338,5 @@ for room in selection:
         loc.realign_pos(doc, [place_plan], [plan_position])
         loc.realign_pos(doc, [place_RCP], [RCP_position])
         loc.realign_pos(doc, elevations, elev_positions)
-        if layout_ori == "Cross":
-            loc.realign_pos(doc, [place_threeD], [threeD_position])
 
         print("Sheet : {0} \t Room {1} ".format(output.linkify(sheet.Id), room_name_nr))

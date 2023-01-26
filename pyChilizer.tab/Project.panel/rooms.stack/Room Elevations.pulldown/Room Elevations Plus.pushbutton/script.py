@@ -8,7 +8,7 @@ output = script.get_output()
 logger = script.get_logger()
 
 doc = __revit__.ActiveUIDocument.Document
-
+shortest_boundary = 300/304.8
 selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms for Room Data Sheets")
 
 # collect all view templates sections
@@ -62,7 +62,7 @@ with revit.Transaction("Create Room Sections", doc):
                 + room.get_Parameter(DB.BuiltInParameter.ROOM_NAME).AsString()
         )
 
-        boundaries = geo.discard_short(geo.get_room_bound(room))
+        boundaries = geo.discard_short(geo.get_room_bound(room), shortest_boundary)
         boundaries = [curve for curve in boundaries if isinstance(curve, DB.Line)]
         # get unique boundaries by sorting lines
         bound_curves = geo.get_unique_borders(boundaries, tolerance)

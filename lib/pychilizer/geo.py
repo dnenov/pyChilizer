@@ -166,14 +166,30 @@ def get_longest_boundary(r):
     return longest
 
 
+def line_as_vector(line):
+    start = line.GetEndPoint(0)
+    end = line.GetEndPoint(1)
+    vector = end - start
+    return vector
+
+
+def rotation_angle(line, base):
+    # calculate the rotation of the line from a given reference
+
+    vector = line_as_vector(line)
+    up = DB.XYZ(base.X, base.Y+1, base.Z)
+    y_direction = up-base
+
+    angle = vector.AngleTo(y_direction)
+    return angle
+
+
 def room_rotation_angle(room):
     # get the angle of the room's longest boundary to Y axis
     # choose one longest curve to use as reference for rotation
 
     longest_boundary = get_longest_boundary(room)
-    p = longest_boundary.GetEndPoint(0)
-    q = longest_boundary.GetEndPoint(1)
-    v = q - p
+    v = line_as_vector(longest_boundary)
 
     y1 = room.Location.Point
     y2 = DB.XYZ(y1.X, y1.Y+1, y1.Z)
@@ -301,7 +317,7 @@ def get_aligned_crop(geo, transform):
     return crop_loop
 
 
-def get_unique_borders(borders, tol):
+def get_unique_borders(borders, tolerance):
     # sort the borders discarding overlapping ones (lying on same axis)
     axis_set = []
     sorted_lines = []
@@ -317,7 +333,7 @@ def get_unique_borders(borders, tol):
         for line in axis_set:
             distance = line.Distance(pt)
             # print (distance)
-            if distance <= tol:
+            if distance <= tolerance:
                 on_axis = True
         if not on_axis:
             axis_set.append(axis)
@@ -325,7 +341,7 @@ def get_unique_borders(borders, tol):
     return sorted_lines
 
 
-def discard_short(curves, threshold=600/304.8):
+def discard_short(curves, threshold):
     return [curve for curve in curves if curve.Length > threshold]
 
 
