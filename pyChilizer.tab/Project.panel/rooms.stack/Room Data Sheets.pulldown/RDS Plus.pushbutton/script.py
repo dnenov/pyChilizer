@@ -43,14 +43,14 @@ def elevation_offsets(el_widths, spacing):
     return el_offsets
 
 
-def orient_elevation_to_line (elevation_marker, line, elevation_id):
+def orient_elevation_to_line (doc, elevation_marker, line, elevation_id, view):
     # get the elevation with the elevation id
     elevation_view = doc.GetElement(elevation_marker.GetViewId(elevation_id))
     # get the view direction of the elevation view (facing the viewer)
     view_direction = elevation_view.ViewDirection
     # note: the origin of the elevation view is NOT the center of the marker
     # TODO: ORIGIN = BAD
-    bb = elevation_marker.get_BoundingBox(revit.active_view)
+    bb = elevation_marker.get_BoundingBox(view)
     center = (bb.Max+bb.Min)/2
 
     # project the origin onto the line and get closest point
@@ -61,10 +61,38 @@ def orient_elevation_to_line (elevation_marker, line, elevation_id):
     vectors_angle = view_direction.AngleOnPlaneTo(projection_direction, DB.XYZ.BasisZ)
     # calculate the rotation angle
     rotation_angle = vectors_angle - math.radians(360)
-
-    marker_axis = DB.Line.CreateBound(center, center + DB.XYZ.BasisZ)
+    # center is not the best solution - the center of the bbox is not in the marker center
+    adjusted_marker_center = get_adjusted_marker_center(doc, elevation_marker, elevation_view, view)
+    marker_axis = DB.Line.CreateBound(adjusted_marker_center, adjusted_marker_center + DB.XYZ.BasisZ)
     elevation_marker.Location.Rotate(marker_axis, rotation_angle)
     return elevation_marker
+
+
+def get_adjusted_marker_center(doc, marker, elevation, view):
+    view_scale = view.Scale
+    elevation_marker_radius = 0.02083333
+    scaled_radius = round(elevation_marker_radius * view_scale, 6)
+    offset_from_edge = 0.006102
+    scaled_offset_from_viewer = round(offset_from_edge * view_scale, 6)
+    viewer_center = 0
+    viewers = DB.FilteredElementCollector(doc, view.Id).OfCategory(DB.BuiltInCategory.OST_Viewers).WhereElementIsNotElementType().ToElements()
+    for viewer in viewers:
+
+        if viewer.Name == elevation.Name and is_viewer_in_marker(doc, marker, viewer):
+            vbb = viewer.get_BoundingBox(view)
+            viewer_center = (vbb.Max + vbb.Min)/2
+
+    viewer_center = viewer_center + (elevation.ViewDirection * (scaled_radius - scaled_offset_from_viewer))
+    return viewer_center
+
+
+def is_viewer_in_marker(doc, elevation_marker, viewer):
+    for i in range(4):
+        view_section_id = elevation_marker.GetViewId(i)
+        if view_section_id is not None:
+            view_section = doc.GetElement(view_section_id)
+            if view_section.Name == viewer.Name:
+                return True
 
 
 output = script.get_output()
@@ -94,7 +122,7 @@ if not titleblocks:
 ui.titleblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
 ui.set_titleblocks()
 
-view_scale = 50
+VIEW_SCALE = 50
 
 # get units for Crop Offset variable
 if units.is_metric(doc):
@@ -178,11 +206,11 @@ for room in selection:
 
         # Create Floor Plan
         viewplan = DB.ViewPlan.Create(doc, fl_plan_type.Id, level.Id)
-        viewplan.Scale = view_scale
+        viewplan.Scale = VIEW_SCALE
 
         # Create Reflected Ceiling Plan
         viewRCP = DB.ViewPlan.Create(doc, ceiling_plan_type.Id, level.Id)
-        viewRCP.Scale = view_scale
+        viewRCP.Scale = VIEW_SCALE
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_plan = geo.find_crop_box(viewplan)
@@ -255,12 +283,13 @@ for room in selection:
         for border in unique_borders:
 
             if isinstance(border, DB.Line) and border.Length >= MINIMAL_LENGTH:
+                # temporarily set view scale to 5 or 10
+                viewplan.Scale = 10
                 # record the boundary lengths (also elevation widths) for later
                 border_widths.append(border.Length)
-                # elevation marker position
-                #TODO: offset from wall
+                # elevation marker position - middle of the boundary
                 border_center = border.Evaluate(0.5, True)
-
+                # offset inwards and check if it's the right side (check if inside room)
                 offset = border.CreateOffset(OFFSET_INWARDS, DB.XYZ(0,0,1))
                 marker_position = offset.Evaluate(0.5, True)
                 if not room.IsPointInRoom(marker_position):
@@ -268,7 +297,7 @@ for room in selection:
                     marker_position = offset.Evaluate(0.5, True)
 
                 # create marker
-                new_marker = DB.ElevationMarker.CreateElevationMarker(doc, elev_type.Id, marker_position, view_scale)
+                new_marker = DB.ElevationMarker.CreateElevationMarker(doc, elev_type.Id, marker_position, VIEW_SCALE)
                 # create 1 elevation
                 try:
                     elevation = new_marker.CreateElevation(doc, viewplan.Id, ELEVATION_ID)
@@ -279,14 +308,21 @@ for room in selection:
                                 exitscript=True)
 
                 # rotate marker with room rotation angle
-                # TODO: still some cases the rotation is wrong
-                orient_elevation_to_line(new_marker,border,ELEVATION_ID)
-                # TODO: crop elevations
+                # TODO: still some cases the rotation is wrong at smaller scales
+
+                orient_elevation_to_line(doc, new_marker,border,ELEVATION_ID, viewplan)
+                viewplan.Scale = VIEW_SCALE
+
                 doc.Regenerate()
+                # TODO: crop elevations
+                # create a bbox parallel to the border
+                sb = database.create_parallel_bbox(border, room)
+                geo.set_crop_to_bb(room, elevation, chosen_crop_offset, doc)
+
         # Rename elevations - Room name Elevation N
         elevation_count = get_alphabetic_labels(len(elevations_col))
         for el, i in izip(elevations_col, elevation_count):
-            el.Scale = view_scale
+            el.Scale = VIEW_SCALE
             el_suffix = " Elevation " + i
             el.Name = database.unique_view_name(room_name_nr, el_suffix)
             database.set_anno_crop(el)
