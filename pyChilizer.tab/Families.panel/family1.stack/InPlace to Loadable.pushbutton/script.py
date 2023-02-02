@@ -10,12 +10,13 @@ from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 output = script.get_output()
 from Autodesk.Revit import Exceptions
 import rpw
+from pychilizer import database
 
 #todo: update languages
 
-def get_fam(some_name, category=DB.BuiltInCategory.OST_GenericModel):
+def get_fam_by_name_and_cat(some_name, category=DB.BuiltInCategory.OST_GenericModel):
     # get family by given name
-    fam_name_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
+    fam_name_filter = database.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
     found_fam = DB.FilteredElementCollector(revit.doc) \
         .OfCategory(category) \
         .WherePasses(fam_name_filter) \
@@ -128,8 +129,7 @@ if el_cat_id in templates_dict:
     template = templates_dict[el_cat_id]
 else:
     template = "\Metric Generic Model.rft"
-fam_template_path = "C:\ProgramData\Autodesk\RVT " + \
-                    HOST_APP.version + "\Family Templates\English" + template
+fam_template_path = __revit__.Application.FamilyTemplatePath + template
 
 
 
@@ -152,8 +152,8 @@ fam_name = project_number+ "_" + source_element.Symbol.Family.Name
 fam_name = fam_name.strip(" ")
 
 # if family under this name exists, keep adding Copy 1
-if get_fam(fam_name):
-    while get_fam(fam_name):
+if get_fam_by_name_and_cat(fam_name):
+    while get_fam_by_name_and_cat(fam_name):
         fam_name = fam_name + "_Copy 1"
 
 # Save family in temp folder
@@ -175,7 +175,14 @@ with revit.Transaction("Load Family", revit.doc):
 # Copy geometry from In-Place to Loadable family
 with revit.Transaction(doc=new_family_doc, name="Copy Geometry"):
     parent_cat = new_family_doc.OwnerFamily.FamilyCategory
-    new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
+    if HOST_APP.is_newer_than(2021):
+
+        new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
+                                                                  DB.BuiltInParameterGroup.PG_MATERIALS, # group_type_id
+                                                                  parent_cat, # familyCategory?
+                                                                  False)
+    else:
+        new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
                                                               DB.BuiltInParameterGroup.PG_MATERIALS,
                                                               DB.ParameterType.Material,
                                                               False)

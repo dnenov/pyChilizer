@@ -8,11 +8,13 @@ class UI:
         self.viewsection_dict = {}
         self.viewport_dict = {}
         self.titleblock = None
+        self.viewport = None
         self.tblock_orientation = ['Vertical', 'Horizontal']
         self.layout_orientation = ['Tiles', 'Cross']
         self.sheet_number = self.config.get_option('sheet_number', '1000')
         self.crop_offset = self.config.get_option('crop_offset', '350'  if self.is_metric else '9.0') 
-        self.titleblock_offset = self.config.get_option('titleblock_offset', '165'  if self.is_metric else '4.2') 
+        self.marker_offset = self.config.get_option('marker_offset', '300'  if self.is_metric else '11.81')
+        self.titleblock_offset = self.config.get_option('titleblock_offset', '165'  if self.is_metric else '4.2')
         self.titleblock_orientation = self.config.get_option('titleblock_orientation', self.tblock_orientation[0]) 
         self.layout_ori = self.config.get_option('layout_ori', self.layout_orientation[0]) 
         self.rotated_elevations = self.config.get_option('rotated_elevations', False)
@@ -34,6 +36,8 @@ class UI:
             self.config.sheet_number = val
         if var == "crop_offset":
             self.config.crop_offset = val
+        if var == "marker_offset":
+            self.config.marker_offset = val
         if var == "titleblock_offset":
             self.config.titleblock_offset = val
         if var == "titleblock_orientation":

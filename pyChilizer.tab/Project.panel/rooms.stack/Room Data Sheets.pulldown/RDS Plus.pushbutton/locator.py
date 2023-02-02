@@ -24,19 +24,14 @@ class Locator:
         self.plan = (pos[0] + pos[2]) / 2
         self.rcp = (pos[4] + pos[6]) / 2
 
-    # TODO: spread elevations
     def set_pos_elevs(self, pos, elevation_widths):
         previous_elevation = (pos[1]+pos[3])/2
         # print ("First {}".format(previous_elevation))
         offset_positions = [previous_elevation]
         # iterate in widths except last
-        #todo: this is not great
         for width in elevation_widths[:-1]:
-            # print ("Width: {}".format(width))
             previous_elevation = previous_elevation.Add(DB.XYZ(width, 0,0))
-            # print ("Next {}".format(previous_elevation))
             offset_positions.append(previous_elevation)
-        # print (offset_positions)
         self.elevations = offset_positions
 
     '''get positions based on the layout

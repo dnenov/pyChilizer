@@ -7,6 +7,7 @@ class UI:
         self.viewplan_dict = {}
         self.viewsection_dict = {}
         self.viewport_dict = {}
+        self.viewport = None
         self.titleblock = None
         self.tblock_orientation = ['Vertical', 'Horizontal']
         self.layout_orientation = ['Tiles', 'Cross']
