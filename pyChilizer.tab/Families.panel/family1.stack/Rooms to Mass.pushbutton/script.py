@@ -59,9 +59,9 @@ if selection:
         # Create extrusion from room boundaries
         with revit.Transaction(doc=new_family_doc, name="Create FreeForm Element"):
             room_geo = room.ClosedShell
-            for geo in room_geo:
-                if isinstance(geo, DB.Solid) and geo.Volume > 0.0:
-                    freeform = DB.FreeFormElement.Create(new_family_doc, geo)
+            for geometry in room_geo:
+                if isinstance(geometry, DB.Solid) and geometry.Volume > 0.0:
+                    freeform = DB.FreeFormElement.Create(new_family_doc, geometry)
                     new_family_doc.Regenerate()
                     delta = DB.XYZ(0,0,0) - freeform.get_BoundingBox(None).Min
                     move_ff = DB.ElementTransformUtils.MoveElement(
@@ -69,10 +69,8 @@ if selection:
                     )
                     # create and associate a material parameter
                     ext_mat_param = freeform.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
-                    new_mat_param = new_family_doc.FamilyManager.AddParameter("Mass Material",
-                                                                              DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                                              DB.ParameterType.Material,
-                                                                              True)
+                    is_instance_parameter = True  # if the material is instance or type parameter
+                    new_mat_param = database.add_material_parameter(new_family_doc, "Mass Material", is_instance_parameter)
                     new_family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param, new_mat_param)
 
         # save and close family

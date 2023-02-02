@@ -6,6 +6,11 @@ import sys
 from pychilizer import units, select, geo, database
 from Autodesk.Revit import Exceptions
 
+
+
+
+
+
 ui = ui.UI(script)
 ui.is_metric = units.is_metric
 doc = __revit__.ActiveUIDocument.Document
@@ -24,9 +29,11 @@ ui.viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate}  # only fetch 
 # TODO: fix the default value
 ui.viewport_dict = {database.get_name(v): v for v in
                     database.get_viewport_types(doc)}  # use a special collector w viewport param
+ui.set_vp_types()
 # add none as an option
 ui.viewsection_dict["<None>"] = None
 ui.viewplan_dict["<None>"] = None
+ui.set_viewtemplates()
 ui.set_viewtemplates()
 
 # collect titleblocks in a dictionary
@@ -34,7 +41,7 @@ titleblocks = DB.FilteredElementCollector(doc).OfCategory(
     DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType().ToElements()
 if not titleblocks:
     forms.alert("There are no Titleblocks loaded in the model.", exitscript=True)
-ui.titleblock_dict = {'{}: {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
+ui.titleblock_dict = {'{} : {}'.format(tb.FamilyName, revit.query.get_name(tb)): tb for tb in titleblocks}
 ui.set_titleblocks()
 
 view_scale = 50
@@ -69,7 +76,7 @@ components = [
     Label("View Template for Elevations"),
     ComboBox(name="vt_elevs", options=sorted(ui.viewsection_dict), default=database.vt_name_match(ui.viewsection, doc)),
     Label("Viewport Type"),
-    ComboBox(name="vp_types", options=sorted(ui.viewport_dict)),
+    ComboBox(name="vp_types", options=sorted(ui.viewport_dict), default=database.vp_name_match(ui.viewport, doc)),
     Separator(),
     Button("Select"),
 ]
@@ -122,6 +129,7 @@ ui.set_config("layout_orientation", layout_ori)
 ui.set_config("rotated_elevations", elev_rotate)
 ui.set_config("el_as_sec", elev_as_sections)
 ui.set_config("titleblock", form.values["tb"])
+ui.set_config("viewport", form.values["vp_types"])
 ui.set_config("viewplan", form.values["vt_plans"])
 ui.set_config("viewceiling", form.values["vt_rcp_plans"])
 ui.set_config("viewsection", form.values["vt_elevs"])

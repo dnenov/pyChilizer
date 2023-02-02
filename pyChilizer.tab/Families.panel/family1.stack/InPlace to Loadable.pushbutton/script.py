@@ -10,12 +10,13 @@ from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 output = script.get_output()
 from Autodesk.Revit import Exceptions
 import rpw
+from pychilizer import database, geo
 
 #todo: update languages
 
-def get_fam(some_name, category=DB.BuiltInCategory.OST_GenericModel):
+def get_fam_by_name_and_cat(some_name, category=DB.BuiltInCategory.OST_GenericModel):
     # get family by given name
-    fam_name_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
+    fam_name_filter = database.get_biparam_stringequals_filter({DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM: some_name})
     found_fam = DB.FilteredElementCollector(revit.doc) \
         .OfCategory(category) \
         .WherePasses(fam_name_filter) \
@@ -95,16 +96,16 @@ family_origin = bb.Min
 for instance_geo in geo_element:
     # get DB.GeometryElement
     geometry_element = instance_geo.GetInstanceGeometry()
-    for geo in geometry_element:
+    for geometry in geometry_element:
         # discard elements with 0 volume
-        if isinstance(geo, DB.Solid) and geo.Volume >0:
+        if isinstance(geometry, DB.Solid) and geometry.Volume >0:
             # translate in reference to geometry's bounding box corner. \
             # This prevents elements being copied too far from family origin.
-            new_solid = DB.SolidUtils.CreateTransformed(geo, inverted_transform_by_ref(bb.Min))
-            solids_dict[new_solid] = get_subcat_name(geo)
+            new_solid = DB.SolidUtils.CreateTransformed(geometry, inverted_transform_by_ref(bb.Min))
+            solids_dict[new_solid] = get_subcat_name(geometry)
         # also collect curves
-        elif isinstance(geo, DB.Curve):
-            new_curve = geo.CreateTransformed(inverted_transform_by_ref(bb.Min))
+        elif isinstance(geometry, DB.Curve):
+            new_curve = geometry.CreateTransformed(inverted_transform_by_ref(bb.Min))
             curves.append(new_curve)
 
 el_cat_id = source_element.Category.Id.IntegerValue
@@ -128,8 +129,7 @@ if el_cat_id in templates_dict:
     template = templates_dict[el_cat_id]
 else:
     template = "\Metric Generic Model.rft"
-fam_template_path = "C:\ProgramData\Autodesk\RVT " + \
-                    HOST_APP.version + "\Family Templates\English" + template
+fam_template_path = __revit__.Application.FamilyTemplatePath + template
 
 
 
@@ -152,8 +152,8 @@ fam_name = project_number+ "_" + source_element.Symbol.Family.Name
 fam_name = fam_name.strip(" ")
 
 # if family under this name exists, keep adding Copy 1
-if get_fam(fam_name):
-    while get_fam(fam_name):
+if get_fam_by_name_and_cat(fam_name):
+    while get_fam_by_name_and_cat(fam_name):
         fam_name = fam_name + "_Copy 1"
 
 # Save family in temp folder
@@ -175,14 +175,12 @@ with revit.Transaction("Load Family", revit.doc):
 # Copy geometry from In-Place to Loadable family
 with revit.Transaction(doc=new_family_doc, name="Copy Geometry"):
     parent_cat = new_family_doc.OwnerFamily.FamilyCategory
-    new_mat_param = new_family_doc.FamilyManager.AddParameter("Material",
-                                                              DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                              DB.ParameterType.Material,
-                                                              False)
+    is_instance_parameter = True # if the material is instance or type parameter
+    new_mat_param = database.add_material_parameter(new_family_doc, "Material", is_instance_parameter)
 
-    for geo in solids_dict.keys():
+    for geometry in solids_dict.keys():
         # create freeform element (copy of the geometry))
-        copied_geo = DB.FreeFormElement.Create(new_family_doc, geo)
+        copied_geo = DB.FreeFormElement.Create(new_family_doc, geometry)
 
         # assign material parameter
         try:
@@ -191,15 +189,15 @@ with revit.Transaction(doc=new_family_doc, name="Copy Geometry"):
         except Exception as err:
             logger.error(err)
         # if the geometry has a subcategory name
-        if solids_dict[geo]:
+        if solids_dict[geometry]:
             # check if the subcategory exists
-            check_if_exists = new_family_doc.Settings.Categories.Contains(solids_dict[geo])
+            check_if_exists = new_family_doc.Settings.Categories.Contains(solids_dict[geometry])
             # if yes, select subcategory by name
             if check_if_exists:
-                subcat = [cat for cat in new_family_doc.Categories if cat.Name == solids_dict[geo]]
+                subcat = [cat for cat in new_family_doc.Categories if cat.Name == solids_dict[geometry]]
             # if not create subcategory using parent category and string (name)
             else:
-                subcat = new_family_doc.Settings.Categories.NewSubcategory(parent_cat, solids_dict[geo])
+                subcat = new_family_doc.Settings.Categories.NewSubcategory(parent_cat, solids_dict[geometry])
             # assign subcategory
             copied_geo.Subcategory = subcat
     new_family_doc.Regenerate()

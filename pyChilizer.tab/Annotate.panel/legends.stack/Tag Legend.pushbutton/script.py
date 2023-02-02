@@ -5,7 +5,7 @@ from itertools import izip
 from pyrevit import revit, DB, script, HOST_APP, forms
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, CheckBox)
 import sys
-
+from pychilizer import database
 # select all legend components in active view
 view = revit.active_view
 if view.ViewType != DB.ViewType.Legend:
@@ -113,24 +113,7 @@ with revit.Transaction("Tag parameter values"):
         for sp in selected_parameters:
             try:
                 p = ton.LookupParameter(sp)
-
-                param_value = None
-                if p.HasValue:
-                    if p.StorageType.ToString() == "ElementId":
-                        if p.Definition.Name == "Category":
-
-                            param_value = p.AsValueString()
-                        else:
-                            param_value = p.AsElementId().IntegerValue
-                    elif p.StorageType.ToString() == "Integer":
-
-                        param_value = p.AsInteger()
-                    elif p.StorageType.ToString() == "Double":
-
-                        param_value= p.AsValueString()
-                    elif p.StorageType.ToString() == "String":
-
-                        param_value = p.AsString()
+                param_value = database.get_param_value_as_string(p)
                 if show_p_name:
                     all_p_txt.append("{0} : {1}".format(sp, str(param_value)))
                 else:

@@ -1,7 +1,26 @@
 # -*- coding: utf-8 -*-
 
-from pyrevit import revit, DB, script, forms, HOST_APP, coreutils
+from pyrevit import revit, DB, script, forms, HOST_APP, coreutils, PyRevitException
 from pyrevit.revit.db import query
+from pyrevit.framework import List
+
+
+def get_alphabetic_labels(nr):
+    # get N letters A, B, C, etc or AA, AB, AC if N more than 26
+    alphabet = [chr(i) for i in range(65, 91)]
+    double_alphabet = []
+    for i in range(26):
+        c1 = alphabet[i]
+        for j in range(26):
+            c2 = alphabet[j]
+            l = c1 + c2
+            double_alphabet.append(l)
+    labels = []
+    if nr <= 26:
+        labels = alphabet[:nr]
+    elif nr > 26:
+        labels = double_alphabet[:nr]
+    return labels
 
 
 def any_fill_type(doc=revit.doc):
@@ -18,7 +37,7 @@ def invis_style(doc=revit.doc):
 
 
 def get_sheet(some_number):
-    sheet_nr_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER: str(some_number)})
+    sheet_nr_filter = get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER: str(some_number)})
     found_sheet = DB.FilteredElementCollector(revit.doc) \
         .OfCategory(DB.BuiltInCategory.OST_Sheets) \
         .WherePasses(sheet_nr_filter) \
@@ -27,8 +46,35 @@ def get_sheet(some_number):
     return found_sheet
 
 
+def get_biparam_stringequals_filter(bip_paramvalue_dict):
+    # copy of the pyrevit query def, updated to R2023
+
+
+    filters = []
+    for bip, fvalue in bip_paramvalue_dict.items():
+        bip_id = DB.ElementId(bip)
+        bip_valueprovider = DB.ParameterValueProvider(bip_id)
+        if HOST_APP.is_newer_than(2022):
+            bip_valuerule = DB.FilterStringRule(bip_valueprovider,
+                                                DB.FilterStringEquals(),
+                                                fvalue)
+        else:
+            bip_valuerule = DB.FilterStringRule(bip_valueprovider,
+                                                DB.FilterStringEquals(),
+                                                fvalue,
+                                                True)
+        filters.append(bip_valuerule)
+
+    if filters:
+        return DB.ElementParameterFilter(
+            List[DB.FilterRule](filters)
+            )
+    else:
+        raise PyRevitException('Error creating filters.')
+
+
 def get_view(some_name):
-    view_name_filter = query.get_biparam_stringequals_filter({DB.BuiltInParameter.VIEW_NAME: some_name})
+    view_name_filter = get_biparam_stringequals_filter({DB.BuiltInParameter.VIEW_NAME: some_name})
     found_view = DB.FilteredElementCollector(revit.doc) \
         .OfCategory(DB.BuiltInCategory.OST_Views) \
         .WherePasses(view_name_filter) \
@@ -89,6 +135,20 @@ def param_set_by_cat(cat):
             if p not in parameter_set and p.IsReadOnly == False:
                 parameter_set.append(p)
     return parameter_set
+
+
+def add_material_parameter(family_document, parameter_name, is_instance):
+    # add a material parameter to the family doc
+    if HOST_APP.is_newer_than(2021):
+        return family_document.FamilyManager.AddParameter(parameter_name,
+                                                          DB.GroupTypeId.Materials,
+                                                          DB.SpecTypeId.Reference.Material,
+                                                          is_instance)
+    else:
+        return family_document.FamilyManager.AddParameter(parameter_name,
+                                                          DB.BuiltInParameterGroup.PG_MATERIALS,
+                                                          DB.ParameterType.Material,
+                                                          is_instance)
 
 
 
@@ -259,11 +319,13 @@ def vp_name_match(vp_name, doc=revit.doc):
 def tb_name_match(tb_name, doc=revit.doc):
     titleblocks = DB.FilteredElementCollector(doc).OfCategory(
         DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsElementType()
-    tb_match = None
     for tb in titleblocks:
-        if revit.query.get_name(tb) == tb_name:
-            tb_match = revit.query.get_name(tb)
-    return tb_match
+        fam_name = tb.Family.Name
+        type_name = get_name(tb)
+        joined_name = fam_name + " : " + type_name
+        if joined_name == tb_name:
+            return joined_name
+
 
 def unique_view_name(name, suffix=None):
     unique_v_name = name + suffix
@@ -316,3 +378,106 @@ def get_vp_by_name(name, doc=revit.doc):
         .FirstElement()
 
     return collector
+
+
+def get_3Dviewtype_id(doc=revit.doc):
+    view_fam_type = DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType)
+    return next(vt.Id for vt in view_fam_type if vt.ViewFamily == DB.ViewFamily.ThreeDimensional)
+
+
+def delete_existing_view(view_name, doc=revit.doc):
+    for view in DB.FilteredElementCollector(doc).OfClass(DB.View).ToElements():
+        if view.Name == view_name:
+            try:
+                doc.Delete(view.Id)
+                break
+            except:
+
+                forms.alert('Current view was cannot be deleted. Close view and try again.')
+                return False
+    return True
+
+
+def remove_viewtemplate(vt_id, doc=revit.doc):
+    viewtype = doc.GetElement(vt_id)
+    template_id = viewtype.DefaultTemplateId
+    if template_id.IntegerValue != -1:
+        if forms.alert(
+                "You are about to remove the View Template"
+                " associated with this View Type. Is that cool with ya?",
+                ok=False, yes=True, no=True, exitscript=True):
+            viewtype.DefaultTemplateId = DB.ElementId(-1)
+
+
+def family_and_type_names(elem, doc):
+    fam_name = doc.GetElement(elem.GetTypeId()).FamilyName
+    type_name = get_name(elem)
+    return (" - ".join([fam_name, type_name]))
+
+
+def create_filter_from_rules(rules):
+    elem_filters = List[DB.ElementFilter]()
+    for rule in rules:
+        elem_param_filter = DB.ElementParameterFilter(rule)
+        elem_filters.Add(elem_param_filter)
+    el_filter = DB.LogicalAndFilter(elem_filters)
+    return el_filter
+
+
+def check_filter_exists(filter_name, doc=revit.doc):
+    all_view_filters = DB.FilteredElementCollector(doc).OfClass(DB.FilterElement).ToElements()
+
+    for vf in all_view_filters:
+        if filter_name == str(vf.Name):
+            return vf
+
+
+def create_filter(filter_name, bics_list, doc=revit.doc):
+    cat_list = List[DB.ElementId](DB.ElementId(cat) for cat in bics_list)
+    filter = DB.ParameterFilterElement.Create(doc, filter_name, cat_list)
+    return filter
+
+
+def filter_from_rules(rules, or_rule=False):
+    elem_filters = List[DB.ElementFilter]()
+    for rule in rules:
+        elem_parameter_filter = DB.ElementParameterFilter(rule)
+        elem_filters.Add(elem_parameter_filter)
+    if or_rule:
+        elem_filter = DB.LogicalOrFilter(elem_filters)
+    else:
+        elem_filter = DB.LogicalAndFilter(elem_filters)
+    return elem_filter
+
+
+def get_param_value_as_string(p):
+    # get the value of the element paramter as a string, regardless of the storage type
+    param_value = None
+    if p.HasValue:
+        if p_storage_type(p) == "ElementId":
+            if p.Definition.Name == "Category":
+
+                param_value = p.AsValueString()
+            else:
+                param_value = p.AsElementId().IntegerValue
+        elif p_storage_type(p) == "Integer":
+
+            param_value = p.AsInteger()
+        elif p_storage_type(p) == "Double":
+
+            param_value = p.AsValueString()
+        elif p_storage_type(p) == "String":
+
+            param_value = p.AsString()
+    return param_value
+
+
+def p_storage_type(param):
+    return param.StorageType.ToString()
+
+
+def get_parameter_from_name(el, param_name):
+    params = el.Parameters
+    for p in params:
+        if p.Definition.Name == param_name:
+            return p

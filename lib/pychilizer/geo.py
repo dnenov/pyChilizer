@@ -166,14 +166,30 @@ def get_longest_boundary(r):
     return longest
 
 
+def line_as_vector(line):
+    start = line.GetEndPoint(0)
+    end = line.GetEndPoint(1)
+    vector = end - start
+    return vector
+
+
+def rotation_angle(line, base):
+    # calculate the rotation of the line from a given reference
+
+    vector = line_as_vector(line)
+    up = DB.XYZ(base.X, base.Y+1, base.Z)
+    y_direction = up-base
+
+    angle = vector.AngleTo(y_direction)
+    return angle
+
+
 def room_rotation_angle(room):
     # get the angle of the room's longest boundary to Y axis
     # choose one longest curve to use as reference for rotation
 
     longest_boundary = get_longest_boundary(room)
-    p = longest_boundary.GetEndPoint(0)
-    q = longest_boundary.GetEndPoint(1)
-    v = q - p
+    v = line_as_vector(longest_boundary)
 
     y1 = room.Location.Point
     y2 = DB.XYZ(y1.X, y1.Y+1, y1.Z)
@@ -225,7 +241,7 @@ def get_bb_outline(bb):
 def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
     # set the crop box of the view to elements's bounding box in that view
     # draw 2 sets of outlines for each orientation (front/back, left/right)
-    # # deactivate crop first, just to make sure the element appears in view
+    # deactivate crop first, just to make sure the element appears in view
     view.CropBoxActive = False
     doc.Regenerate()
 
@@ -258,7 +274,7 @@ def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
     view_direction = view.ViewDirection
 
     view.CropBoxActive = True
-
+    # offset will fail if crop offset value too small
     try:
         # try with set 1, if doesn't work try with set 2
         crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set1))
@@ -275,6 +291,50 @@ def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
         if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
             curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
         crsm.SetCropShape(curve_loop_offset)
+
+    return
+
+
+def set_crop_to_boundary(room, boundary_curve, view, crop_offset, doc=revit.doc):
+    # set the crop box of the view to match the boundary in width and room's bounding box in that view in height
+    # deactivate crop first, just to make sure the element appears in view
+    view.CropBoxActive = False
+    doc.Regenerate()
+
+    b_start = boundary_curve.GetEndPoint(0)
+    b_end = boundary_curve.GetEndPoint(1)
+
+    bb = room.get_BoundingBox(view)
+
+    pt1 = DB.XYZ(b_start.X, b_start.Y, bb.Min.Z)
+    pt2 = DB.XYZ(b_start.X, b_start.Y, bb.Max.Z)
+    pt3 = DB.XYZ(b_end.X, b_end.Y, bb.Max.Z)
+    pt4 = DB.XYZ(b_end.X, b_end.Y, bb.Min.Z)
+
+    l1 = DB.Line.CreateBound(pt1, pt2)
+    l2 = DB.Line.CreateBound(pt2, pt3)
+    l3 = DB.Line.CreateBound(pt3, pt4)
+    l4 = DB.Line.CreateBound(pt4, pt1)
+
+    curves_set = [l1, l2, l3, l4]
+
+    crsm = view.GetCropRegionShapeManager()
+    view_direction = view.ViewDirection
+
+    view.CropBoxActive = True
+    # offset will fail if crop offset value too small
+
+    crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set))
+    # offset the crop with the specified offset
+    try:
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+    except Exception:
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+    # in case the offset works inwards, correct it to offset outwards
+    if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+    crsm.SetCropShape(curve_loop_offset)
+
     return
 
 
@@ -301,7 +361,7 @@ def get_aligned_crop(geo, transform):
     return crop_loop
 
 
-def get_unique_borders(borders, tol):
+def get_unique_borders(borders, tolerance):
     # sort the borders discarding overlapping ones (lying on same axis)
     axis_set = []
     sorted_lines = []
@@ -317,7 +377,7 @@ def get_unique_borders(borders, tol):
         for line in axis_set:
             distance = line.Distance(pt)
             # print (distance)
-            if distance <= tol:
+            if distance <= tolerance:
                 on_axis = True
         if not on_axis:
             axis_set.append(axis)
@@ -325,7 +385,7 @@ def get_unique_borders(borders, tol):
     return sorted_lines
 
 
-def discard_short(curves, threshold=600/304.8):
+def discard_short(curves, threshold):
     return [curve for curve in curves if curve.Length > threshold]
 
 
@@ -341,10 +401,8 @@ def room_to_freeform(r, family_doc):
             )
             # create and associate a material parameter
             ext_mat_param = freeform.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
-            new_mat_param = family_doc.FamilyManager.AddParameter("Material",
-                                                                  DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                                  DB.ParameterType.Material,
-                                                                  True)
+            is_instance_parameter = True  # if the material is instance or type parameter
+            new_mat_param = database.add_material_parameter(family_doc, "Material", is_instance_parameter)
             family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
                                                                                 new_mat_param)
     return freeform
@@ -430,3 +488,35 @@ def room_bb_outlines(room, angle=None):
     rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room.Location.Point)
     rotated_crop_loop = get_aligned_crop(room.ClosedShell, rotation.Inverse)
     return rotated_crop_loop
+
+
+def orient_elevation_to_line(doc, elevation_marker, marker_center, line, elevation_id, view):
+    # rotate the elevation marker to face a line, with given marker center
+    # get the elevation with the elevation id
+    elevation_view = doc.GetElement(elevation_marker.GetViewId(elevation_id))
+    # get the view direction of the elevation view (facing the viewer)
+    view_direction = elevation_view.ViewDirection
+    # note: the origin of the elevation view is NOT the center of the marker
+    bb = elevation_marker.get_BoundingBox(view)
+    center = (bb.Max + bb.Min) / 2
+
+    # project the origin onto the line and get closest point
+    project = line.Project(center)
+    project_point = project.XYZPoint
+    # construct a line from from the projected point to origin and get its vector
+    projection_direction = DB.Line.CreateBound(project_point, center).Direction
+    vectors_angle = view_direction.AngleOnPlaneTo(projection_direction, DB.XYZ.BasisZ)
+    # calculate the rotation angle
+    rotation_angle = vectors_angle - math.radians(360)
+    marker_axis = DB.Line.CreateBound(marker_center, marker_center + DB.XYZ.BasisZ)
+    elevation_marker.Location.Rotate(marker_axis, rotation_angle)
+    return elevation_marker
+
+
+def offset_curve_inwards_into_room(curve, room, offset_distance):
+    # offset inwards and check if it's the right side (check if inside room)
+    offset_curve = curve.CreateOffset(offset_distance, DB.XYZ(0, 0, 1))
+    curve_midpoint = offset_curve.Evaluate(0.5, True)
+    if not room.IsPointInRoom(curve_midpoint):
+        offset_curve = curve.CreateOffset(-offset_distance, DB.XYZ(0, 0, 1))
+    return offset_curve

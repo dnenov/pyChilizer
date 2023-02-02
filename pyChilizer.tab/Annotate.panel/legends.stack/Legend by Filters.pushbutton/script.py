@@ -97,6 +97,12 @@ for f in view_filters:
 
         filter_name = revit.doc.GetElement(f).Name
         legend_od[filter_name] = {filter_colour: filter_pat_id}
+    elif colour_source == "Projection" and (not overrides.SurfaceForegroundPatternColor.IsValid) and (not overrides.SurfaceBackgroundPatternColor.IsValid):
+        filter_colour = overrides.ProjectionLineColor
+        filter_pat_id = database.get_solid_fill_pat().Id
+
+        filter_name = revit.doc.GetElement(f).Name
+        legend_od[filter_name] = {filter_colour: filter_pat_id}
     # same for cut settings
     elif colour_source == "Cut" and (
             overrides.CutForegroundPatternColor.IsValid or overrides.CutBackgroundPatternColor.IsValid):
