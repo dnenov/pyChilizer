@@ -16,7 +16,7 @@ view = revit.active_view
 
 overrides_option = config.get_config()
 
-
+print (overrides_option)
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 # [x] revise colours to exclude nearby colours
 # [x] include more categories
@@ -99,7 +99,7 @@ for type_name in return_types:
 n = len(types_dict.keys())
 colours = None
 if n < 14:
-    colours = colorize.basic_colours()
+    colours = colorize.basic_colours()[:n]
 else:
     colours = colorize.rainbow()
 print (colours)
@@ -161,7 +161,7 @@ with revit.Transaction("Colorize Types"):
             new_filter = database.create_filter(filter_name, [chosen_bic])
             new_filter.SetElementFilter(parameter_filter)
             filter_id = new_filter.Id
-
+        print (overrides_option)
         # define overrrides
         override = DB.OverrideGraphicSettings()
         if "Projection Line Colour" in overrides_option:
@@ -169,6 +169,7 @@ with revit.Transaction("Colorize Types"):
         if "Cut Line Colour" in overrides_option:
             override.SetCutLineColor(c)
         if "Projection Surface Colour" in overrides_option:
+
             override.SetSurfaceForegroundPatternColor(c)
             override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
         if "Cut Pattern Colour" in overrides_option:
