@@ -99,7 +99,10 @@ def get_fam_types(family_name):
 def get_fam_any_type(family_name):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
-    fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
+    if HOST_APP.is_newer_than(2022):
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name)
+    else:
+        fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
     fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
     collector = DB.FilteredElementCollector(revit.doc) \
@@ -129,6 +132,20 @@ def param_set_by_cat(cat):
             if p not in parameter_set and p.IsReadOnly == False:
                 parameter_set.append(p)
     return parameter_set
+
+
+def add_material_parameter(family_document, parameter_name, is_instance):
+    # add a material parameter to the family doc
+    if HOST_APP.is_newer_than(2021):
+        return family_document.FamilyManager.AddParameter(parameter_name,
+                                                          DB.GroupTypeId.Materials,
+                                                          DB.SpecTypeId.Reference.Material,
+                                                          is_instance)
+    else:
+        return family_document.FamilyManager.AddParameter(parameter_name,
+                                                          DB.BuiltInParameterGroup.PG_MATERIALS,
+                                                          DB.ParameterType.Material,
+                                                          is_instance)
 
 
 

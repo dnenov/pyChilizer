@@ -401,10 +401,8 @@ def room_to_freeform(r, family_doc):
             )
             # create and associate a material parameter
             ext_mat_param = freeform.get_Parameter(DB.BuiltInParameter.MATERIAL_ID_PARAM)
-            new_mat_param = family_doc.FamilyManager.AddParameter("Material",
-                                                                  DB.BuiltInParameterGroup.PG_MATERIALS,
-                                                                  DB.ParameterType.Material,
-                                                                  True)
+            is_instance_parameter = True  # if the material is instance or type parameter
+            new_mat_param = database.add_material_parameter(family_doc, "Material", is_instance_parameter)
             family_doc.FamilyManager.AssociateElementParameterToFamilyParameter(ext_mat_param,
                                                                                 new_mat_param)
     return freeform
