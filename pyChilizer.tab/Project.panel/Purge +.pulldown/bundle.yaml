@@ -3,6 +3,7 @@ layout:
   - Purge dwg patterns
   - Purge imported dwg
   - Purge unused scope boxes
+  - Purge unplaced views
   - Purge unused sheets
   - Purge unused view templates
   - Purge views not on sheets

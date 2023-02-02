@@ -1,0 +1,5 @@
+title: "Purge unplaced views"
+tooltip: |
+  Delete all the unplaced Views in the model.
+
+  Author: Deyan Nenov

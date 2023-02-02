@@ -19,7 +19,7 @@ if len(sheets) == 0:
     forms.alert("No empty Sheets, well done!")
 else:
     if forms.alert(message, ok=False, yes=True, no=True, exitscript=True):
-        with revit.Transaction("Delete imported patterns"):
+        with revit.Transaction(__title__):
             try:
                 s_names = [doc.GetElement(s).Title for s in sheets] # Get sheet names  
                 doc.Delete(sheets)  # Delete the sheets 
