@@ -118,6 +118,7 @@ ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan, do
 elev_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
 
 # get default template
+# TODO: remove for plan too
 def_temp = doc.GetElement(elev_type.DefaultTemplateId)
 if def_temp:
     check_room_vis = def_temp.GetCategoryHidden(DB.ElementId(-2000160))

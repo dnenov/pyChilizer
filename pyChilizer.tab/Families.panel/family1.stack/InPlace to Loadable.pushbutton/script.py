@@ -11,6 +11,8 @@ output = script.get_output()
 from Autodesk.Revit import Exceptions
 import rpw
 from pychilizer import database, geo
+from os.path import isfile
+
 
 #todo: update languages
 
@@ -107,30 +109,29 @@ for instance_geo in geo_element:
         elif isinstance(geometry, DB.Curve):
             new_curve = geometry.CreateTransformed(inverted_transform_by_ref(bb.Min))
             curves.append(new_curve)
-
+# get the ID of the element's category
 el_cat_id = source_element.Category.Id.IntegerValue
+# check the language of the family templates library
+language = database.get_family_template_language()
+fam_template_path = None
 
-templates_dict = {
-    -2001000: "\Metric Casework.rft",
-    -2000080: "\Metric Furniture.rft",
-    -2001040: "\Metric Electrical Equipment.rft",
-    -2001370: "\Metric Entourage.rft",
-    -2001100: "\Metric Furniture System.rft",
-    -2001120: "\Metric Lighting Fixture.rft",
-    -2001140: "\Metric Mechanical Equipment.rft",
-    -2001180: "\Metric Parking.rft",
-    -2001360: "\Metric Planting.rft",
-    -2001160: "\Metric Plumbing Fixture.rft",
-    -2001260: "\Metric Site.rft",
-    -2001350: "\Metric Specialty Equipment.rft",
-}
-template = None
-if el_cat_id in templates_dict:
-    template = templates_dict[el_cat_id]
+# if el_cat_id in templates_dict and language == "English":
+#     fam_template_path = __revit__.Application.FamilyTemplatePath + templates_dict[el_cat_id]
+# elif el_cat_id in templates_dict:
+
+# try matching the source element's category to available templates
+match_template_by_category_language = database.fam_template_name_by_lang_and_cat(language, el_cat_id)
+if match_template_by_category_language:
+    fam_template_path = __revit__.Application.FamilyTemplatePath + match_template_by_category_language
+
+# if cannot find the template, try generic model template
 else:
-    template = "\Metric Generic Model.rft"
-fam_template_path = __revit__.Application.FamilyTemplatePath + template
+    fam_template_path = __revit__.Application.FamilyTemplatePath + database.get_generic_family_template_name()
 
+# check family template exists
+if not isfile(fam_template_path):
+    forms.alert(title="No Generic Template Found", msg="There is no Generic Model Template in the default location. Can you point where to get it?", ok=True)
+    fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
 
 
 # define new family doc

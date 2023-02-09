@@ -3,7 +3,7 @@
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils, PyRevitException
 from pyrevit.revit.db import query
 from pyrevit.framework import List
-
+from collections import defaultdict
 
 def get_alphabetic_labels(nr):
     # get N letters A, B, C, etc or AA, AB, AC if N more than 26
@@ -237,34 +237,128 @@ def get_view_family_types(viewtype, doc):
                 vt.ViewFamily == viewtype]
 
 
-def get_generic_template_path():
-    fam_template_folder = __revit__.Application.FamilyTemplatePath
+def get_family_template_path():
+    return __revit__.Application.FamilyTemplatePath
+
+
+def get_family_template_language():
+    family_template_path = get_family_template_path()
+    template_language = family_template_path.split("\\")[-1]
+    return template_language
+
+
+def fam_template_name_by_lang_and_cat(language, category_id):
+    # matching the template to category Id in several languages
+    temp_dict_eng = defaultdict(lambda:None,{
+        -2001000: "\Metric Casework.rft",
+        -2000080: "\Metric Furniture.rft",
+        -2001040: "\Metric Electrical Equipment.rft",
+        -2001370: "\Metric Entourage.rft",
+        -2001100: "\Metric Furniture System.rft",
+        -2001120: "\Metric Lighting Fixture.rft",
+        -2001140: "\Metric Mechanical Equipment.rft",
+        -2001180: "\Metric Parking.rft",
+        -2001360: "\Metric Planting.rft",
+        -2001160: "\Metric Plumbing Fixture.rft",
+        -2001260: "\Metric Site.rft",
+        -2001350: "\Metric Specialty Equipment.rft",
+    })
+    temp_dict_eng_i = defaultdict(lambda:None,{
+        -2001000: "\Casework.rft",
+        -2000080: "\Furniture.rft",
+        -2001040: "\Electrical Equipment.rft",
+        -2001370: "\Entourage.rft",
+        -2001100: "\Furniture System.rft",
+        -2001120: "\Lighting Fixture.rft",
+        -2001140: "\Mechanical Equipment.rft",
+        -2001180: "\Parking.rft",
+        -2001360: "\Planting.rft",
+        -2001160: "\Plumbing Fixture.rft",
+        -2001260: "\Site.rft",
+        -2001350: "\Specialty Equipment.rft",
+    })
+    temp_dict_fra = defaultdict(lambda:None,{
+        -2001000: "\Meubles de rangement métriques.rft",
+        -2000080: "\Mobilier métrique.rft",
+        -2001040: "\Equipement électrique métrique.rft",
+        -2001370: "\Environnement métrique.rft",
+        -2001100: "\Système de mobilier métrique.rft",
+        -2001120: "\Luminaires métriques.rft",
+        -2001140: "\Equipement mécanique métrique.rft",
+        -2001180: "\Parking métrique.rft",
+        -2001360: "\Plantes métriques.rft",
+        -2001160: "\Installations de plomberie métriques.rft",
+        -2001260: "\Site métrique.rft",
+        -2001350: "\Equipement spécialisé métrique.rft",
+    })
+    temp_dict_deu = defaultdict(lambda :None, {
+        -2001040: "\Elektrogeräte.rft",
+        -2001120: "\Leuchten.rft",
+        -2001140: "\Mechanische Geräte.rft",
+        -2001360: "\Bepflanzung.rft",
+        -2001160: "\Sanitärinstallation.rft",
+    })
+
+    if language == "English":
+        return temp_dict_eng[category_id]
+    elif language == "English_I":
+            return temp_dict_eng_i[category_id]
+    elif language == "French":
+            return temp_dict_fra[category_id]
+    elif language == "German":
+            return temp_dict_deu[category_id]
+    else:
+        return None
+
+
+def get_generic_family_template_name():
+
+    # get the name of the generic model template
 
     ENG = "\Metric Generic Model.rft"
+    ENG_I = "\Generic Model.rft"
     FRA = "\Modèle générique métrique.rft"
     GER = "\Allgemeines Modell.rft"
     ESP = "\Modelo genérico métrico.rft"
     RUS = "\Метрическая система, типовая модель.rft"
+    CHN = "\基于两个标高的公制常规模型.rft"
+    ITA = "\Modello generico metrico.rft"
+    JPN = "\一般モデル(メートル単位).rft"
+    PLK = "\Model ogólny (metryczny).rft"
+    CSY = "\Obecný model.rft"
+    PTB = "\Modelo genérico métrico.rft"
+    KOR = "\미터법 일반 모델.rft"
 
-    if ("French") in fam_template_folder:
-        generic_temp_name = FRA
-    elif ("Spanish") in fam_template_folder:
-        generic_temp_name = ESP
-    elif ("German") in fam_template_folder:
-        generic_temp_name = GER
-    elif ("Russian") in fam_template_folder:
-        generic_temp_name = RUS
+    template_language = get_family_template_language()
+    if ("English_I") in template_language:
+        return  ENG_I
+    elif ("English") in template_language:
+        return  ENG
+    elif ("French") in template_language:
+        return  FRA
+    elif ("Spanish") in template_language:
+        return  ESP
+    elif ("German") in template_language:
+        return  GER
+    elif ("Russian") in template_language:
+        return  RUS
+    elif ("Chinese") in template_language:
+        return  CHN
+    elif ("Czech") in template_language:
+        return  CSY
+    elif ("Italian") in template_language:
+        return  ITA
+    elif ("Japanese") in template_language:
+        return  JPN
+    elif ("Korean") in template_language:
+        return  KOR
+    elif ("Polish") in template_language:
+        return  PLK
+    elif ("Portuguese") in template_language:
+        return PTB
     else:
-        generic_temp_name = ENG
+        return None
 
-    gen_template_path = fam_template_folder + generic_temp_name
-    from os.path import isfile
-    if isfile(gen_template_path):
-        return gen_template_path
-    else:
-        forms.alert(title="No Generic Template Found", msg="There is no Generic Model Template in the default location. Can you point where to get it?", ok=True)
-        fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
-        return fam_template_path
 
 
 def get_mass_template_path():
