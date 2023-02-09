@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils, PyRevitException
-from pyrevit.revit.db import query
 from pyrevit.framework import List
 from collections import defaultdict
 
