@@ -412,7 +412,7 @@ def remove_viewtemplate(vt_id, doc=revit.doc):
             viewtype.DefaultTemplateId = DB.ElementId(-1)
 
 
-def family_and_type_names(elem, doc):
+def family_and_type_names(elem, doc=revit.doc):
     fam_name = doc.GetElement(elem.GetTypeId()).FamilyName
     type_name = get_name(elem)
     return (" - ".join([fam_name, type_name]))

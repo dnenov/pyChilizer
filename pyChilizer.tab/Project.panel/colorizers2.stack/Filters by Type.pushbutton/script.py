@@ -16,16 +16,19 @@ view = revit.active_view
 
 overrides_option = config.get_config()
 
-print (overrides_option)
+# print (overrides_option)
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 # [x] revise colours to exclude nearby colours
 # [x] include more categories
 # [x] set view to open active
-# [no] method gradient or random
+# [no] method gradient or random - random showed bad results with more types
 # [x] include which types to colorize
 # [x] include setting for projection/cut line and surface
 # [x] test in R2022
 # [ ] test in R2023
+# [ ] Fix first run overrides
+# [ ] Loadable families
+
 
 
 category_opt_dict = {
@@ -66,7 +69,7 @@ for el in get_view_elements:
         types_in_view[database.get_name(el)] = el.GetTypeId()
     else:
         if el.SuperComponent:
-            types_in_view[database.family_and_type_names(el.SuperComponent)] = el.SuperComponent.GetTypeId()
+            types_in_view[database.family_and_type_names(el.SuperComponent, doc)] = el.SuperComponent.GetTypeId()
         else:
             types_in_view[database.family_and_type_names(el)] = el.GetTypeId()
 
@@ -102,13 +105,12 @@ if n < 14:
     colours = colorize.basic_colours()[:n]
 else:
     colours = colorize.rainbow()
-print (colours)
 col_dict = colorize.polylinear_gradient(colours, n)
 
 chop_col_list = col_dict["hex"][0:n]
 # gradient method
 revit_colours = [colorize.revit_colour(h) for h in chop_col_list]
-# random method
+# random method - not used
 # revit_colours = colorize.random_colour_hsv(len(types_dict))
 
 for x in range(10):
@@ -143,9 +145,9 @@ with revit.Transaction("Colorize Types"):
             use_existent = forms.alert(
                 "Filter with the required name already exists. Do you want to use existing filters?", yes=True, no=True)
             if use_existent:
-                override_filters = 1
-            else:
                 override_filters = -1
+            else:
+                override_filters = 1
 
         if override_filters == -1:
             filter_id = filter_exists.Id
@@ -161,7 +163,7 @@ with revit.Transaction("Colorize Types"):
             new_filter = database.create_filter(filter_name, [chosen_bic])
             new_filter.SetElementFilter(parameter_filter)
             filter_id = new_filter.Id
-        print (overrides_option)
+        # print (overrides_option)
         # define overrrides
         override = DB.OverrideGraphicSettings()
         if "Projection Line Colour" in overrides_option:
