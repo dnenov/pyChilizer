@@ -286,13 +286,16 @@ def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
         crsm.SetCropShape(curve_loop_offset)
     except:
         crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set2))
-
-        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction) # fails here
+        try:
+            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction) # fails here
+        except Exceptions.InternalException:
+            forms.alert("Room crop failed. This might be happening if the room placement point is not in the room -- or -- if the Crop Offset is set to a value too large. Review and try again")
+            return False
         if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
             curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
         crsm.SetCropShape(curve_loop_offset)
 
-    return
+    return True
 
 
 def set_crop_to_boundary(room, boundary_curve, view, crop_offset, doc=revit.doc):

@@ -272,7 +272,7 @@ for room in selection:
             el.Name = database.unique_view_name(room_name_nr, el_suffix)
             database.set_anno_crop(el)
 
-        sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
+        sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id, doc)
 
     elevation_widths = elevation_offsets(border_widths, ELEVATION_SPACING)
 

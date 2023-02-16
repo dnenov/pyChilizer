@@ -6,6 +6,8 @@ from Autodesk.Revit import Exceptions
 
 logger = script.get_logger()
 output = script.get_output()
+doc = __revit__.ActiveUIDocument.Document
+
 
 selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms to Transform")
 
@@ -19,7 +21,7 @@ if selection:
         mass_placement_point = room.get_BoundingBox(None).Min
         # define new family doc
         try:
-            new_family_doc = revit.doc.Application.NewFamilyDocument(fam_template_path)
+            new_family_doc = doc.Application.NewFamilyDocument(fam_template_path)
         except NameError:
             forms.alert(msg="No Template",
                         sub_msg="Cannot find a Conceptual Mass Template in the default location.",
@@ -27,7 +29,7 @@ if selection:
                         warn_icon=True, exitscript=True)
 
         # To name the room, collect its parameters:
-        project_number = revit.doc.ProjectInformation.Number
+        project_number = doc.ProjectInformation.Number
         if not project_number:
             project_number = "Project"
         dept = room.get_Parameter(DB.BuiltInParameter.ROOM_DEPARTMENT).AsString()  # chosen parameter for Department
@@ -42,7 +44,7 @@ if selection:
         fam_type_name = re.sub(r'[^\w\-_\. ]', '', room_name)
 
         # check if family already exists:
-        while database.get_fam_any_type(fam_name):
+        while database.get_fam_any_type(fam_name, doc):
             fam_name = fam_name + "_Copy 1"
 
         # Save family in temp folder
@@ -79,15 +81,15 @@ if selection:
         new_family_doc.Close()
 
         # Reload family with extrusion and place it in the same position as the room
-        with revit.Transaction("Load Family", revit.doc):
-            loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
+        with revit.Transaction("Load Family", doc):
+            loaded_f = revit.db.create.load_family(fam_path, doc=doc)
             # find family symbol and activate
-            fam_symbol = database.get_fam_any_type(fam_name)
+            fam_symbol = database.get_fam_any_type(fam_name, doc)
             if not fam_symbol.IsActive:
                 fam_symbol.Activate()
-                revit.doc.Regenerate()
+                doc.Regenerate()
             # place instance
-            new_fam_instance = revit.doc.Create.NewFamilyInstance(room.Level.GetPlaneReference(),
+            new_fam_instance = doc.Create.NewFamilyInstance(room.Level.GetPlaneReference(),
                                                                   mass_placement_point,
                                                                   DB.XYZ(1, 0, 0),
                                                                   fam_symbol

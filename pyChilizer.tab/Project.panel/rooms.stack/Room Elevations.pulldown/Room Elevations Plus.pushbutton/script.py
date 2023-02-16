@@ -74,7 +74,7 @@ with revit.Transaction("Create Room Sections", doc):
             # section name
             section_name = room_name_nr + " - Elevation " + database.char_i(counter)
             counter += 1
-            while database.get_view(section_name):
+            while database.get_view(section_name, doc):
                 section_name = section_name + " Copy 1"
 
             # create a bbox parallel to the border

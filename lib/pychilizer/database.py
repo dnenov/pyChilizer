@@ -36,9 +36,9 @@ def invis_style(doc=revit.doc):
             return gs
 
 
-def get_sheet(some_number):
+def get_sheet(some_number, doc=revit.doc):
     sheet_nr_filter = get_biparam_stringequals_filter({DB.BuiltInParameter.SHEET_NUMBER: str(some_number)})
-    found_sheet = DB.FilteredElementCollector(revit.doc) \
+    found_sheet = DB.FilteredElementCollector(doc) \
         .OfCategory(DB.BuiltInCategory.OST_Sheets) \
         .WherePasses(sheet_nr_filter) \
         .WhereElementIsNotElementType().ToElements()
@@ -73,9 +73,9 @@ def get_biparam_stringequals_filter(bip_paramvalue_dict):
         raise PyRevitException('Error creating filters.')
 
 
-def get_view(some_name):
+def get_view(some_name, doc=revit.doc):
     view_name_filter = get_biparam_stringequals_filter({DB.BuiltInParameter.VIEW_NAME: some_name})
-    found_view = DB.FilteredElementCollector(revit.doc) \
+    found_view = DB.FilteredElementCollector(doc) \
         .OfCategory(DB.BuiltInCategory.OST_Views) \
         .WherePasses(view_name_filter) \
         .WhereElementIsNotElementType().ToElements()
@@ -83,7 +83,7 @@ def get_view(some_name):
     return found_view
 
 
-def get_fam_types(family_name):
+def get_fam_types(family_name, doc=revit.doc):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
     if HOST_APP.is_newer_than(2022):
@@ -92,14 +92,14 @@ def get_fam_types(family_name):
         fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
     fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
-    collector = DB.FilteredElementCollector(revit.doc) \
+    collector = DB.FilteredElementCollector(doc) \
         .WherePasses(fam_filter) \
         .WhereElementIsElementType()
 
     return collector
 
 
-def get_fam_any_type(family_name):
+def get_fam_any_type(family_name, doc=revit.doc):
     fam_bip_id = DB.ElementId(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
     fam_bip_provider = DB.ParameterValueProvider(fam_bip_id)
     if HOST_APP.is_newer_than(2022):
@@ -108,7 +108,7 @@ def get_fam_any_type(family_name):
         fam_filter_rule = DB.FilterStringRule(fam_bip_provider, DB.FilterStringEquals(), family_name, True)
     fam_filter = DB.ElementParameterFilter(fam_filter_rule)
 
-    collector = DB.FilteredElementCollector(revit.doc) \
+    collector = DB.FilteredElementCollector(doc) \
         .WherePasses(fam_filter) \
         .WhereElementIsElementType() \
         .FirstElement()
@@ -124,10 +124,10 @@ def get_solid_fill_pat(doc=revit.doc):
     return solid_pat[0]
 
 
-def param_set_by_cat(cat):
+def param_set_by_cat(cat, doc=revit.doc):
     # get all project type parameters of a given category
     # can be used to gather parameters for UI selection
-    all_gm = DB.FilteredElementCollector(revit.doc).OfCategory(cat).WhereElementIsElementType().ToElements()
+    all_gm = DB.FilteredElementCollector(doc).OfCategory(cat).WhereElementIsElementType().ToElements()
     parameter_set = []
     for gm in all_gm:
         params = gm.Parameters
@@ -152,10 +152,10 @@ def add_material_parameter(family_document, parameter_name, is_instance):
 
 
 
-def create_sheet(sheet_num, sheet_name, titleblock):
+def create_sheet(sheet_num, sheet_name, titleblock, doc=revit.doc):
     sheet_num = str(sheet_num)
 
-    new_datasheet = DB.ViewSheet.Create(revit.doc, titleblock)
+    new_datasheet = DB.ViewSheet.Create(doc, titleblock)
     new_datasheet.Name = sheet_name
 
     while get_sheet(sheet_num):
