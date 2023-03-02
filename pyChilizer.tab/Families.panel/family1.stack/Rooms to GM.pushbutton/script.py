@@ -1,9 +1,11 @@
-from pyrevit import revit, DB, script, forms
+from pyrevit import revit, DB, script, forms, HOST_APP
 import tempfile
 from pychilizer import geo, select, database
 import re
 import config
 from Autodesk.Revit import Exceptions
+from os.path import isfile
+
 
 logger = script.get_logger()
 output = script.get_output()
@@ -12,14 +14,20 @@ selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Ro
 
 if selection:
     # Create family doc from template
-    fam_temp_path = database.get_generic_template_path()
-
+    fam_template_path = __revit__.Application.FamilyTemplatePath + database.get_generic_family_template_name()
+    # check family template exists
+    if not isfile(fam_template_path):
+        forms.alert(title="No Generic Template Found",
+                    msg="There is no Generic Model Template in the default location. Can you point where to get it?",
+                    ok=True)
+        fam_template_path = forms.pick_file(file_ext="rft",
+                                            init_dir="C:\ProgramData\Autodesk\RVT " + HOST_APP.version + "\Family Templates")
     # iterate through rooms
     for room in selection:
 
         # define new family doc
         try:
-            new_family_doc = revit.doc.Application.NewFamilyDocument(fam_temp_path)
+            new_family_doc = revit.doc.Application.NewFamilyDocument(fam_template_path)
         except NameError:
             forms.alert(msg="No Template",
                         sub_msg="There is no Generic Model Template in the default location.",
