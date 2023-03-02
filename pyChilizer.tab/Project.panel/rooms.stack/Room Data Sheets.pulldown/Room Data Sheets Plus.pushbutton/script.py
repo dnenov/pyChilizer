@@ -16,7 +16,7 @@ UNIQUE_BORDERS_TOLERANCE = 10 / 304.8
 ELEVATION_SPACING = 0.3
 ELEVATION_ID = 0  # elevation on the marker placed facing left
 VIEW_SCALE = 50
-
+RDS_FLOOR_PLAN_TYPE_NAME = "RDS Floor Plan Type"
 
 def elevation_offsets(el_widths, spacing):
     el_offsets = [el_widths[0] + spacing]
@@ -31,6 +31,14 @@ def get_view_width_scaled(view):
     real_width = crop_bbox.Max.X - crop_bbox.Min.X
     scaled_width = real_width / view.Scale
     return scaled_width
+
+
+def get_view_family_type_by_name(view_family_category, name, doc=revit.doc):
+    # get ViewFamilyType by type and name
+    all_view_family_types = database.get_view_family_types(view_family_category, doc)
+    for view_fam_type in all_view_family_types:
+        if view_fam_type.get_Parameter(DB.BuiltInParameter.ALL_MODEL_TYPE_NAME).AsValueString() == name:
+            return view_fam_type
 
 
 output = script.get_output()
@@ -112,20 +120,27 @@ if ok:
 else:
     sys.exit()
 
-# collect and take the first view plan type, elevation type, set default scale
-fl_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan, doc)[0]
+
+# collect and take the first elevation type, rcp type
 ceiling_plan_type = database.get_view_family_types(DB.ViewFamily.CeilingPlan, doc)[0]
 elev_type = database.get_view_family_types(DB.ViewFamily.Elevation, doc)[0]
+# look for RDS floor plan type
+rds_floor_plan_type = get_view_family_type_by_name(DB.ViewFamily.FloorPlan, RDS_FLOOR_PLAN_TYPE_NAME, doc)
+if not rds_floor_plan_type:
+    # duplicate floor type and create one without the template overrides
+    some_fl_plan_type = database.get_view_family_types(DB.ViewFamily.FloorPlan, doc)[0]
+    with revit.Transaction("Duplicate Floor Plan Type", doc):
+        rds_floor_plan_type = some_fl_plan_type.Duplicate(RDS_FLOOR_PLAN_TYPE_NAME)
+        rds_floor_plan_type.DefaultTemplateId = DB.ElementId(-1)
 
-# get default template
-# TODO: remove for plan too
-def_temp = doc.GetElement(elev_type.DefaultTemplateId)
-if def_temp:
-    check_room_vis = def_temp.GetCategoryHidden(DB.ElementId(-2000160))
+# get default elevation template
+default_elevation_template = doc.GetElement(elev_type.DefaultTemplateId)
+if default_elevation_template:
+    check_room_vis = default_elevation_template.GetCategoryHidden(DB.ElementId(-2000160))
     # check if rooms are hidden in the default template and disable it if yes
     if check_room_vis:
         if forms.alert(
-                "To proceed, we need to remove a Default View Template associated with Elevation / Section View Type. Is that cool with ya?",
+                "To proceed, we need to remove a Default View Template associated with Elevation Type. Is that cool with ya?",
                 ok=False, yes=True, no=True, exitscript=True):
             with revit.Transaction("Remove ViewTemplate"):
                 elev_type.DefaultTemplateId = DB.ElementId(-1)
@@ -148,7 +163,7 @@ for room in selection:
         room_angle = geo.room_rotation_angle(room)  # helper method get room rotation by longest boundary
 
         # Create Floor Plan
-        viewplan = DB.ViewPlan.Create(doc, fl_plan_type.Id, level.Id)
+        viewplan = DB.ViewPlan.Create(doc, rds_floor_plan_type.Id, level.Id)
         viewplan.Scale = VIEW_SCALE
 
         # Create Reflected Ceiling Plan

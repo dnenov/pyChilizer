@@ -403,9 +403,12 @@ def vt_name_match(vt_name, doc=revit.doc):
 def vp_name_match(vp_name, doc=revit.doc):
     # return a view template with a given name, None if not found
     views = DB.FilteredElementCollector(doc).OfClass(DB.Viewport)
+    # if no viewports exist:
+    if not views.ToElements():
+        return None
     for v in views:
         if v.Name == vp_name:
-            return v.Name            
+            return v.Name
     return views.FirstElement().Name
 
 
