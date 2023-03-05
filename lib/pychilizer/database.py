@@ -47,8 +47,6 @@ def get_sheet(some_number):
 
 def get_biparam_stringequals_filter(bip_paramvalue_dict):
     # copy of the pyrevit query def, updated to R2023
-
-
     filters = []
     for bip, fvalue in bip_paramvalue_dict.items():
         bip_id = DB.ElementId(bip)
@@ -67,7 +65,7 @@ def get_biparam_stringequals_filter(bip_paramvalue_dict):
     if filters:
         return DB.ElementParameterFilter(
             List[DB.FilterRule](filters)
-            )
+        )
     else:
         raise PyRevitException('Error creating filters.')
 
@@ -180,7 +178,7 @@ def get_name(el):
     return DB.Element.Name.__get__(el)
 
 
-def create_parallel_bbox(line, crop_elem, offset=300/304.8):
+def create_parallel_bbox(line, crop_elem, offset=300 / 304.8):
     # create section parallel to x (solution by Building Coder)
     p = line.GetEndPoint(0)
     q = line.GetEndPoint(1)
@@ -213,15 +211,15 @@ def create_parallel_bbox(line, crop_elem, offset=300/304.8):
     section_box.Max = max
 
     pt = DB.XYZ(centerpoint.X, centerpoint.Y, minZ)
-    point_in_front = pt+(-3)*view_direction
-    #TODO: check other usage
+    point_in_front = pt + (-3) * view_direction
+    # TODO: check other usage
     return section_box
 
 
 def char_series(nr):
     from string import ascii_uppercase
     series = []
-    for i in range(0,nr):
+    for i in range(0, nr):
         series.append(ascii_uppercase[i])
     return series
 
@@ -233,7 +231,7 @@ def char_i(i):
 
 def get_view_family_types(viewtype, doc):
     return [vt for vt in DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType) if
-                vt.ViewFamily == viewtype]
+            vt.ViewFamily == viewtype]
 
 
 def get_family_template_path():
@@ -248,7 +246,7 @@ def get_family_template_language():
 
 def fam_template_name_by_lang_and_cat(language, category_id):
     # matching the template to category Id in several languages
-    temp_dict_eng = defaultdict(lambda:None,{
+    temp_dict_eng = defaultdict(lambda: None, {
         -2001000: "\Metric Casework.rft",
         -2000080: "\Metric Furniture.rft",
         -2001040: "\Metric Electrical Equipment.rft",
@@ -262,7 +260,7 @@ def fam_template_name_by_lang_and_cat(language, category_id):
         -2001260: "\Metric Site.rft",
         -2001350: "\Metric Specialty Equipment.rft",
     })
-    temp_dict_eng_i = defaultdict(lambda:None,{
+    temp_dict_eng_i = defaultdict(lambda: None, {
         -2001000: "\Casework.rft",
         -2000080: "\Furniture.rft",
         -2001040: "\Electrical Equipment.rft",
@@ -276,7 +274,7 @@ def fam_template_name_by_lang_and_cat(language, category_id):
         -2001260: "\Site.rft",
         -2001350: "\Specialty Equipment.rft",
     })
-    temp_dict_fra = defaultdict(lambda:None,{
+    temp_dict_fra = defaultdict(lambda: None, {
         -2001000: "\Meubles de rangement métriques.rft",
         -2000080: "\Mobilier métrique.rft",
         -2001040: "\Equipement électrique métrique.rft",
@@ -290,7 +288,7 @@ def fam_template_name_by_lang_and_cat(language, category_id):
         -2001260: "\Site métrique.rft",
         -2001350: "\Equipement spécialisé métrique.rft",
     })
-    temp_dict_deu = defaultdict(lambda :None, {
+    temp_dict_deu = defaultdict(lambda: None, {
         -2001040: "\Elektrogeräte.rft",
         -2001120: "\Leuchten.rft",
         -2001140: "\Mechanische Geräte.rft",
@@ -300,18 +298,17 @@ def fam_template_name_by_lang_and_cat(language, category_id):
 
     if language == "English":
         return temp_dict_eng[category_id]
-    elif language == "English_I":
-            return temp_dict_eng_i[category_id]
+    elif language == "English_I" or language == "English-Imperial":
+        return temp_dict_eng_i[category_id]
     elif language == "French":
-            return temp_dict_fra[category_id]
+        return temp_dict_fra[category_id]
     elif language == "German":
-            return temp_dict_deu[category_id]
+        return temp_dict_deu[category_id]
     else:
         return None
 
 
 def get_generic_family_template_name():
-
     # get the name of the generic model template
 
     ENG = "\Metric Generic Model.rft"
@@ -329,30 +326,30 @@ def get_generic_family_template_name():
     KOR = "\미터법 일반 모델.rft"
 
     template_language = get_family_template_language()
-    if ("English_I") in template_language:
-        return  ENG_I
+    if ("English_I") in template_language or ("English-I"):
+        return ENG_I
     elif ("English") in template_language:
-        return  ENG
+        return ENG
     elif ("French") in template_language:
-        return  FRA
+        return FRA
     elif ("Spanish") in template_language:
-        return  ESP
+        return ESP
     elif ("German") in template_language:
-        return  GER
+        return GER
     elif ("Russian") in template_language:
-        return  RUS
+        return RUS
     elif ("Chinese") in template_language:
-        return  CHN
+        return CHN
     elif ("Czech") in template_language:
-        return  CSY
+        return CSY
     elif ("Italian") in template_language:
-        return  ITA
+        return ITA
     elif ("Japanese") in template_language:
-        return  JPN
+        return JPN
     elif ("Korean") in template_language:
-        return  KOR
+        return KOR
     elif ("Polish") in template_language:
-        return  PLK
+        return PLK
     elif ("Portuguese") in template_language:
         return PTB
     else:
@@ -385,8 +382,11 @@ def get_mass_template_path():
     if isfile(mass_template_path):
         return mass_template_path
     else:
-        forms.alert(title="No Mass Template Found", msg="There is no Mass Model Template in the default location. Can you point where to get it?", ok=True)
-        fam_template_path = forms.pick_file(file_ext="rft", init_dir="C:\ProgramData\Autodesk\RVT "+HOST_APP.version+"\Family Templates")
+        forms.alert(title="No Mass Template Found",
+                    msg="There is no Mass Model Template in the default location. Can you point where to get it?",
+                    ok=True)
+        fam_template_path = forms.pick_file(file_ext="rft",
+                                            init_dir="C:\ProgramData\Autodesk\RVT " + HOST_APP.version + "\Family Templates")
         return fam_template_path
 
 
@@ -399,7 +399,7 @@ def vt_name_match(vt_name, doc=revit.doc):
             vt_match = v.Name
     return vt_match
 
-    
+
 def vp_name_match(vp_name, doc=revit.doc):
     # return a view template with a given name, None if not found
     views = DB.FilteredElementCollector(doc).OfClass(DB.Viewport)
@@ -443,7 +443,7 @@ def get_viewport_types(doc=revit.doc):
 
     collector = DB.FilteredElementCollector(doc) \
         .WherePasses(param_filter) \
-        .WhereElementIsElementType()\
+        .WhereElementIsElementType() \
         .ToElements()
 
     return collector
@@ -466,11 +466,9 @@ def get_vp_by_name(name, doc=revit.doc):
 
     and_filter = DB.LogicalAndFilter(param_filter, type_filter)
 
-
-
     collector = DB.FilteredElementCollector(doc) \
         .WherePasses(and_filter) \
-        .WhereElementIsElementType()\
+        .WhereElementIsElementType() \
         .FirstElement()
 
     return collector

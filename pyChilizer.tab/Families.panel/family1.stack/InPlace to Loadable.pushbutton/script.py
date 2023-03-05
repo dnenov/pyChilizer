@@ -126,8 +126,7 @@ if match_template_by_category_language:
 
 # if cannot find the template, try generic model template
 else:
-    fam_template_path = __revit__.Application.FamilyTemplatePath + database.get_generic_family_template_name()
-
+    fam_template_path = __revit__.Application.FamilyTemplatePath + str(database.get_generic_family_template_name())
 # check family template exists
 if not isfile(fam_template_path):
     forms.alert(title="No Generic Template Found", msg="There is no Generic Model Template in the default location. Can you point where to get it?", ok=True)
