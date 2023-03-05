@@ -21,7 +21,7 @@ if selection:
 
         # define new family doc
         try:
-            new_family_doc = doc.Application.NewFamilyDocument(fam_temp_path)
+            new_family_doc = doc.Application.NewFamilyDocument(fam_template_path)
         except NameError:
             forms.alert(msg="No Template",
                         sub_msg="There is no Generic Model Template in the default location.",
