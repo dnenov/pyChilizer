@@ -8,15 +8,15 @@ from pychilizer import database
 from pychilizer import colorize
 from pyrevit.framework import List
 import config
+from Autodesk.Revit import Exceptions
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 doc = revit.doc
 view = revit.active_view
-
+solid_fill_pattern = database.get_solid_fill_pat(doc)
 overrides_option = config.get_config()
 
-# print (overrides_option)
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 # [x] revise colours to exclude nearby colours
 # [x] include more categories
@@ -25,9 +25,9 @@ overrides_option = config.get_config()
 # [x] include which types to colorize
 # [x] include setting for projection/cut line and surface
 # [x] test in R2022
-# [ ] test in R2023
-# [ ] Fix first run overrides
-# [ ] Loadable families
+# [x] test in R2023
+# [x] Fix first run overrides
+# [x] Loadable families
 
 
 
@@ -42,6 +42,8 @@ category_opt_dict = {
     "Furniture Systems": BIC.OST_FurnitureSystems,
     "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
     "Roofs": BIC.OST_Roofs,
+    "Specialty Equipment": BIC.SpecialtyEquipment,
+    "Ceilings": BIC.OST_Ceilings
 }
 
 if forms.check_modelview(revit.active_view):
@@ -163,7 +165,6 @@ with revit.Transaction("Colorize Types"):
             new_filter = database.create_filter(filter_name, [chosen_bic])
             new_filter.SetElementFilter(parameter_filter)
             filter_id = new_filter.Id
-        # print (overrides_option)
         # define overrrides
         override = DB.OverrideGraphicSettings()
         if "Projection Line Colour" in overrides_option:
@@ -173,10 +174,13 @@ with revit.Transaction("Colorize Types"):
         if "Projection Surface Colour" in overrides_option:
 
             override.SetSurfaceForegroundPatternColor(c)
-            override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
+            override.SetSurfaceForegroundPatternId(solid_fill_pattern.Id)
         if "Cut Pattern Colour" in overrides_option:
             override.SetCutForegroundPatternColor(c)
-            override.SetCutForegroundPatternId(database.get_solid_fill_pat().Id)
+            override.SetCutForegroundPatternId(solid_fill_pattern.Id)
         # add filter to view
-        view.AddFilter(filter_id)
+        try:
+            view.AddFilter(filter_id)
+        except Exceptions.ArgumentException:
+            pass
         view.SetFilterOverrides(filter_id, override)

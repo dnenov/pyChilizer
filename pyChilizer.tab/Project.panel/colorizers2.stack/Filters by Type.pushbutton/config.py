@@ -1,8 +1,6 @@
 from pyrevit import script, DB, forms
-from rpw.ui.forms import FlexForm, Label, CheckBox, Button, ComboBox
-import sys
 
-custom_config = script.get_config("Override Options")
+custom_config = script.get_config()
 
 override_options = ["Projection Line Colour", "Projection Surface Colour", "Cut Line Colour", "Cut Pattern Colour"]
 default_options = ["Projection Surface Colour", "Cut Pattern Colour"]
@@ -15,6 +13,9 @@ class ChosenItem(forms.TemplateListItem):
 
 def get_config():
     prev_choice = custom_config.get_option("overrides", [])
+    if not prev_choice:
+        save_config([x for x in default_options], custom_config)
+        prev_choice = custom_config.get_option("overrides", [])
     return prev_choice
 
 
@@ -28,6 +29,8 @@ def load_configs(config):
     """Load list of frequently selected items from configs or defaults"""
     ovrds = config.get_option("overrides", [])
     ovrd_items = [x for x in (ovrds or default_options)]
+    if not ovrds:
+        ovrd_items = [x for x in default_options]
     return filter(None, ovrd_items)
 
 
