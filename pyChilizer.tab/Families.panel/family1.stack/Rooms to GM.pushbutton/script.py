@@ -9,6 +9,8 @@ from os.path import isfile
 
 logger = script.get_logger()
 output = script.get_output()
+doc = __revit__.ActiveUIDocument.Document
+
 
 selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Rooms to Transform")
 
@@ -27,7 +29,7 @@ if selection:
 
         # define new family doc
         try:
-            new_family_doc = revit.doc.Application.NewFamilyDocument(fam_template_path)
+            new_family_doc = doc.Application.NewFamilyDocument(fam_template_path)
         except NameError:
             forms.alert(msg="No Template",
                         sub_msg="There is no Generic Model Template in the default location.",
@@ -35,7 +37,7 @@ if selection:
                         warn_icon=True, exitscript=True)
 
         # To name the room, collect its parameters:
-        project_number = revit.doc.ProjectInformation.Number
+        project_number = doc.ProjectInformation.Number
         if not project_number:
             project_number = "Project"
         dept = room.get_Parameter(DB.BuiltInParameter.ROOM_DEPARTMENT).AsString()
@@ -51,7 +53,7 @@ if selection:
         fam_type_name = re.sub(r'[^\w\-_\. ]', '', room_name)
 
         # check if family already exists:
-        while database.get_fam_any_type(fam_name):
+        while database.get_fam_any_type(fam_name, doc):
             fam_name = fam_name + "_Copy 1"
 
         # Save family in temp folder
@@ -79,16 +81,16 @@ if selection:
         new_family_doc.Close()
 
         # Load family with extrusion and place it in the same position as the room
-        with revit.Transaction("Load Family", revit.doc):
-            loaded_f = revit.db.create.load_family(fam_path, doc=revit.doc)
+        with revit.Transaction("Load Family", doc):
+            loaded_f = revit.db.create.load_family(fam_path, doc=doc)
             # find family symbol and activate
-            fam_symbol = database.get_fam_any_type(fam_name)
+            fam_symbol = database.get_fam_any_type(fam_name, doc)
             if not fam_symbol.IsActive:
                 fam_symbol.Activate()
-                revit.doc.Regenerate()
+                doc.Regenerate()
             # place family symbol at position
 
-            new_fam_instance = revit.doc.Create.NewFamilyInstance(placement_point, fam_symbol,
+            new_fam_instance = doc.Create.NewFamilyInstance(placement_point, fam_symbol,
                                                                   room.Level,
                                                                   DB.Structure.StructuralType.NonStructural)
             correct_lvl_offset = new_fam_instance.get_Parameter(

@@ -6,6 +6,8 @@ from pyrevit import revit, DB, script, forms, HOST_APP
 from rpw.ui.forms import FlexForm, Label, TextBox, Button,ComboBox, Separator
 from pychilizer import units, select, geo, database
 
+
+doc = __revit__.ActiveUIDocument.Document
 output = script.get_output()
 logger = script.get_logger()
 bound_opt = DB.SpatialElementBoundaryOptions()
@@ -15,19 +17,19 @@ selection = select.select_with_cat_filter(DB.BuiltInCategory.OST_Rooms, "Pick Ro
 # TODO: try using room boundaries for crop, if fails use BBox, correct the bbox rotation on fail
 
 # collect all view templates for plans
-viewplans = DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewPlan) # collect plans
+viewplans = DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan) # collect plans
 viewplan_dict = {v.Name: v for v in viewplans if v.IsTemplate} # only fetch IsTemplate plans
 # add none as an option
 viewplan_dict["<None>"] = None
 
 
 # collect and take the first view plan type, elevation type, set default scale
-col_view_types = (DB.FilteredElementCollector(revit.doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType())
+col_view_types = (DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType).WhereElementIsElementType())
 floor_plan_type = [vt for vt in col_view_types if database.get_name(vt) == "Floor Plan"][0]
 view_scale = 50
 
 # get units for Crop Offset variable
-if units.is_metric(revit.doc):
+if units.is_metric(doc):
     unit_sym = "Crop Offset [mm]"
     default_crop_offset = 350
 else:
@@ -51,25 +53,25 @@ chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
 
 
 for room in selection:
-    with revit.Transaction("Create Plan", revit.doc):
+    with revit.Transaction("Create Plan", doc):
         level = room.Level
         room_location = room.Location.Point
         # Create Floor Plan
-        viewplan = DB.ViewPlan.Create(revit.doc, floor_plan_type.Id, level.Id)
+        viewplan = DB.ViewPlan.Create(doc, floor_plan_type.Id, level.Id)
         viewplan.Scale = view_scale
 
     # find crop box element (method with transactions, must be outside transaction)
     crop_box_el = geo.find_crop_box(viewplan)
 
-    with revit.Transaction("Rotate Plan", revit.doc):
+    with revit.Transaction("Rotate Plan", doc):
         # rotate the view plan along the room's longest boundary
         axis = geo.get_bb_axis_in_view(room, viewplan)
         angle = geo.room_rotation_angle(room)
         rotated = DB.ElementTransformUtils.RotateElement(
-            revit.doc, crop_box_el.Id, axis, angle
+            doc, crop_box_el.Id, axis, angle
         )
         viewplan.CropBoxActive = True
-        revit.doc.Regenerate()
+        doc.Regenerate()
 
         room_boundaries = geo.get_room_bound(room)
         if room_boundaries:
@@ -80,10 +82,10 @@ for room in selection:
                 )
                 crop_shape = viewplan.GetCropRegionShapeManager()
                 crop_shape.SetCropShape(offset_boundaries)
-                revit.doc.Regenerate()
+                doc.Regenerate()
             # for some shapes the offset will fail, then use BBox method
             except:
-                revit.doc.Regenerate()
+                doc.Regenerate()
                 # using a helper method, get the outlines of the room's bounding box,
                 # then rotate them with an already known angle (inverted)
                 rotation = DB.Transform.CreateRotationAtPoint(DB.XYZ.BasisZ, angle, room_location)
@@ -102,7 +104,7 @@ for room in selection:
                 + room.get_Parameter(DB.BuiltInParameter.ROOM_NAME).AsString()
         )
         viewplan_name = room_name_nr + " Plan"
-        while database.get_view(viewplan_name):
+        while database.get_view(viewplan_name, doc):
             viewplan_name = viewplan_name + " Copy 1"
         viewplan.Name = viewplan_name
         database.set_anno_crop(viewplan)

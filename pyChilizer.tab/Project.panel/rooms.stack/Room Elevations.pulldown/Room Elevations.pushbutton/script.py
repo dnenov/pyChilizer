@@ -75,7 +75,7 @@ for room in selection:
             elevation.Scale = view_scale
             # Rename elevations
             elevation_name = room_name_nr + " - Elevation " + elevation_count[i]
-            while database.get_view(elevation_name):
+            while database.get_view(elevation_name, doc):
                 elevation_name = elevation_name + " Copy 1"
 
             elevation.Name = elevation_name

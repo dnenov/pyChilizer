@@ -1,13 +1,13 @@
 from pyrevit import revit, DB, script, forms
 from rpw.ui.forms import FlexForm, Label, TextBox, Button, ComboBox, CheckBox, Separator
-import locator, ui
+import rdspluslocator, rdsplusui
 from itertools import izip
 import sys
 from pychilizer import units, select, geo, database
 from Autodesk.Revit import Exceptions
 import math
 
-ui = ui.UI(script)
+ui = rdsplusui.UI(script)
 ui.is_metric = units.is_metric
 doc = __revit__.ActiveUIDocument.Document
 
@@ -272,12 +272,12 @@ for room in selection:
             el.Name = database.unique_view_name(room_name_nr, el_suffix)
             database.set_anno_crop(el)
 
-        sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id)
+        sheet = database.create_sheet(chosen_sheet_nr, room_name_nr, chosen_tb.Id, doc)
 
     elevation_widths = elevation_offsets(border_widths, ELEVATION_SPACING)
 
     # get positions on sheet
-    loc = locator.Locator(sheet, titleblock_offset, tb_orientation, elevation_widths)
+    loc = rdspluslocator.Locator(sheet, titleblock_offset, tb_orientation, elevation_widths)
     plan_position = loc.plan
     RCP_position = loc.rcp
     elev_positions = loc.elevations
