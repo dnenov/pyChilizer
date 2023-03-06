@@ -4,11 +4,14 @@ from pyrevit import forms
 from pyrevit import revit, DB
 from pyrevit import script
 import random
+import threedconfig
 from pychilizer import database, colorize
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 doc = revit.doc
+overrides_option = threedconfig.get_config()
+solid_fill_pattern = database.get_solid_fill_pat(doc=doc)
 
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
@@ -32,6 +35,9 @@ category_opt_dict = {
     "Furniture Systems": BIC.OST_FurnitureSystems,
     "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
     "Roofs": BIC.OST_Roofs,
+    "Specialty Equipment": BIC.OST_SpecialityEquipment,
+    "Ceilings": BIC.OST_Ceilings
+
 }
 
 selected_cat = forms.CommandSwitchWindow.show(category_opt_dict, message="Select Category to Colorize", width = 400)
@@ -65,7 +71,7 @@ with revit.Transaction("Create Colorized 3D"):
 types_dict = defaultdict(set)
 for el in get_view_elements:
     # discard nested shared - group under the parent family
-    if selected_cat in ["Floors", "Walls", "Roofs"]:
+    if selected_cat in ["Floors", "Walls", "Roofs", "Ceilings"]:
         type_id = el.GetTypeId()
     else:
         if el.SuperComponent:
@@ -93,9 +99,16 @@ with revit.Transaction("Isolate and Colorize Types"):
     for type_id, c in zip(types_dict.keys(), revit_colours):
         type_instance = types_dict[type_id]
         override = DB.OverrideGraphicSettings()
-        # override.SetProjectionLineColor(c)
-        override.SetSurfaceForegroundPatternColor(c)
-        override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc=doc).Id)
+        if "Projection Line Colour" in overrides_option:
+            override.SetProjectionLineColor(c)
+        if "Cut Line Colour" in overrides_option:
+            override.SetCutLineColor(c)
+        if "Projection Surface Colour" in overrides_option:
+            override.SetSurfaceForegroundPatternColor(c)
+            override.SetSurfaceForegroundPatternId(solid_fill_pattern.Id)
+        if "Cut Pattern Colour" in overrides_option:
+            override.SetCutForegroundPatternColor(c)
+            override.SetCutForegroundPatternId(solid_fill_pattern.Id)
         for inst in type_instance:
             view.SetElementOverrides(inst, override)
 revit.active_view = view
