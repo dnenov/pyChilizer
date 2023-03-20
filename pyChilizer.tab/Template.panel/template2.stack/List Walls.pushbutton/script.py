@@ -141,7 +141,7 @@ level = get_level_from_view(view)
 
 label_offset = DB.XYZ(X_OFFSET, 0, 0)
 
-with revit.Transaction("Place Detail Items"):
+with revit.Transaction("Wall Types Legend"):
     for name in sorted(dict_walls):
         try:
             offset = DB.XYZ(0, -Y_OFFSET-layers_count[name], 0)
