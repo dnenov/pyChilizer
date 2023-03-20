@@ -64,7 +64,7 @@ def cb_sym_placer(cb_symbol, point):
 
 def get_level_from_view(view):
     levels = DB.FilteredElementCollector(revit.doc).OfClass(DB.Level)
-    lvl_param = view.LookupParameter("Associated Level")
+    lvl_param = view.get_Parameter(DB.BuiltInParameter.PLAN_VIEW_LEVEL)
 
     for lvl in levels:
         if lvl.Name == lvl_param.AsString():
