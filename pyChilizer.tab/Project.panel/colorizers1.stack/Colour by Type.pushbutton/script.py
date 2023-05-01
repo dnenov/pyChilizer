@@ -36,7 +36,7 @@ category_opt_dict = {
 if forms.check_modelview(revit.active_view):
     selected_cat = forms.CommandSwitchWindow.show(category_opt_dict, message="Select Category to Colorize", width = 400)
     if selected_cat == None:
-    script.exit()
+        script.exit()
 
 
 # which category
@@ -60,17 +60,18 @@ get_view_elements = [DB.FilteredElementCollector(doc) \
 
 # print (get_view_elements)
 types_dict = defaultdict(set)
-for el in get_view_elements:
-    # discard nested shared - group under the parent family
-    if selected_cat in ["Floors", "Walls", "Ceilings"]:
-        type_id = el.GetTypeId()
-    else:
-        try:
-            type_id = el.SuperComponent.GetTypeId()
-        except:
+for vl in get_view_elements:
+    for el in vl:
+        # discard nested shared - group under the parent family
+        if selected_cat in ["Floors", "Walls", "Ceilings"]:
             type_id = el.GetTypeId()
-    types_dict[type_id].add(el.Id)
-
+        else:
+            try:
+                type_id = el.SuperComponent.GetTypeId()
+            except:
+                type_id = el.GetTypeId()
+        types_dict[type_id].add(el.Id)
+    
 # # old method
 # colours = random_colour_hsv(len(types_dict))
 
