@@ -97,7 +97,8 @@ for el in get_view_elements:
     if selected_parameter in ins_p_names_lst:
         param_value = database.get_param_value_as_string(el.LookupParameter(selected_parameter))
         # values_dict[param_value] = []
-        values_dict[param_value].append(el.Id)
+        if param_value is not None:
+            values_dict[param_value].append(el.Id)
 # TODO: add for type as well
 # for i in values_dict.keys():
 #     print (len(values_dict[i]))
