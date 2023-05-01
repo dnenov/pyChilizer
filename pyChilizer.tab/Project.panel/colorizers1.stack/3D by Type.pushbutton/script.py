@@ -36,21 +36,26 @@ category_opt_dict = {
     "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
     "Roofs": BIC.OST_Roofs,
     "Specialty Equipment": BIC.OST_SpecialityEquipment,
-    "Ceilings": BIC.OST_Ceilings
-
+    "Ceilings": BIC.OST_Ceilings,
+    "Curtain Wall Panels": BIC.OST_CurtainWallPanels
 }
 
 selected_cat = forms.CommandSwitchWindow.show(category_opt_dict, message="Select Category to Colorize", width = 400)
+if selected_cat == None:
+    script.exit()
 
-chosen_bic = category_opt_dict[selected_cat]
+chosen_bic = [category_opt_dict[selected_cat]]
+if selected_cat == "Curtain Wall Panels": # not so elegant way to support curtain panels by adding walls category
+    chosen_bic.append(BIC.OST_Walls)
 
 # get all element categories and return a list of all categories except chosen BIC
 all_cats = doc.Settings.Categories
-chosen_category = all_cats.get_Item(chosen_bic)
-hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
+chosen_category = [all_cats.get_Item(i) for i in chosen_bic]
+hide_categories_except = [c for c in all_cats if c.Id not in [i.Id for i in chosen_category]]
 
 with revit.Transaction("Create Colorized 3D"):
-    view_name = "Colorize {} by Type".format(chosen_category.Name)
+    for cc in chosen_category:
+        view_name = "Colorize {} by Type".format(cc.Name)
     if database.delete_existing_view(view_name, doc=doc):
         # create new 3D
         viewtype_id = database.get_3Dviewtype_id(doc=doc)
@@ -63,22 +68,24 @@ with revit.Transaction("Create Colorized 3D"):
         if view.CanCategoryBeHidden(cat.Id):
             view.SetCategoryHidden(cat.Id, True)
 
-    get_view_elements = DB.FilteredElementCollector(doc) \
-        .OfCategory(chosen_bic) \
+    get_view_elements = [DB.FilteredElementCollector(doc) \
+        .OfCategory(cb) \
         .WhereElementIsNotElementType() \
-        .ToElements()
+        .ToElements() for cb in chosen_bic 
+        ]
 
 types_dict = defaultdict(set)
-for el in get_view_elements:
-    # discard nested shared - group under the parent family
-    if selected_cat in ["Floors", "Walls", "Roofs", "Ceilings"]:
-        type_id = el.GetTypeId()
-    else:
-        if el.SuperComponent:
-            type_id = el.SuperComponent.GetTypeId()
-        else:
+for vl in get_view_elements:
+    for el in vl:
+        # discard nested shared - group under the parent family
+        if selected_cat in ["Floors", "Walls", "Roofs", "Ceilings"]:
             type_id = el.GetTypeId()
-    types_dict[type_id].add(el.Id)
+        else:
+            try:
+                type_id = el.SuperComponent.GetTypeId()
+            except:
+                type_id = el.GetTypeId()
+        types_dict[type_id].add(el.Id)
 
 
 # colour dictionary
