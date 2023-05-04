@@ -546,24 +546,26 @@ def filter_from_rules(rules, or_rule=False):
 
 def get_param_value_as_string(p):
     # get the value of the element paramter as a string, regardless of the storage type
-    param_value = None
+
     if p.HasValue:
         if p_storage_type(p) == "ElementId":
             if p.Definition.Name == "Category":
 
-                param_value = p.AsValueString()
+                return p.AsValueString()
             else:
-                param_value = p.AsElementId().IntegerValue
+                return p.AsElementId().IntegerValue
         elif p_storage_type(p) == "Integer":
 
-            param_value = p.AsInteger()
+            return p.AsInteger()
         elif p_storage_type(p) == "Double":
 
-            param_value = p.AsValueString()
+            return p.AsValueString()
         elif p_storage_type(p) == "String":
 
-            param_value = p.AsString()
-    return param_value
+            return p.AsString()
+    else:
+        print ("could not get param value")
+        return
 
 
 def p_storage_type(param):
