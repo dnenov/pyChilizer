@@ -564,7 +564,6 @@ def get_param_value_as_string(p):
 
             return p.AsString()
     else:
-        print ("could not get param value")
         return
 
 
