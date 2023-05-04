@@ -24,7 +24,7 @@ overrides_option = filterbyvalueconfig.get_config()
 # [ ] test in R2022
 # [x] test in R2023
 # [ ] exclude irrelevant builtin params
-
+# [ ] use labels instead of hard-coded names for BIC
 class ParameterOption(forms.TemplateListItem):
     """Wrapper for selecting parameters from a list"""
 
@@ -36,15 +36,21 @@ class ParameterOption(forms.TemplateListItem):
     def name(self):
         return str(self.param_dict[self.item])
 
-    # @property
-    # def param_type(self):
-    #     if isinstance(self.item, DB.ElementId):
-    #         if doc.GetElement(self.item).Definition.IsShared:
-    #             return "Shared"
-    #         else:
-    #             return "Project"
-    #     else:
-    #         return "BuiltIn"
+
+def match_bip_by_id (el, id):
+    element_i_params = el.Parameters
+    element_t_params = query.get_type(el).Parameters
+
+    for p in element_i_params:
+        # print (p.Definition.Name)
+        # print (p.Id, "- " , id)
+        if p.Id == id:
+            return p
+    for p in element_t_params:
+        # print(p.Id, "- ", id)
+        if p.Id == id:
+            return p
+    return None
 
 
 category_opt_dict = {
@@ -58,81 +64,92 @@ category_opt_dict = {
     "Furniture Systems": BIC.OST_FurnitureSystems,
     "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
     "Roofs": BIC.OST_Roofs,
+    "Electrical Equipment": BIC.OST_ElectricalEquipment,
+    "Electrical Fixtures": BIC.OST_ElectricalFixtures,
+    "Parking": BIC.OST_Parking,
+    "Site": BIC.OST_Site,
+    "Entourage": BIC.OST_Entourage,
+    "Ceilings": BIC.OST_Ceilings,
+    "Curtain Wall Panels": BIC.OST_CurtainWallPanels,
+    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
+    "Topography":BIC.OST_Topography,
+    "Structural Columns":BIC.OST_StructuralColumns,
+    "Structural Framing":BIC.OST_StructuralFraming,
+    "Stairs":BIC.OST_Stairs,
+    "Ramps":BIC.OST_Ramps,
 }
 
 if forms.check_modelview(revit.active_view):
-    selected_cat = forms.CommandSwitchWindow.show(sorted(category_opt_dict), message="Select Category to Colorize",
-                                                  width=400)
+    selected_cat = forms.SelectFromList.show(sorted(category_opt_dict),
+                                             message="Select Category to Colorize",
+                                             multiselect=True,
+                                            width=400)
+if selected_cat == None:
+    script.exit()
 # format the category dictionary
-chosen_bic = category_opt_dict[selected_cat]
-
+chosen_bics = [category_opt_dict[c] for c in selected_cat]
+# print (chosen_bics)
 # get all element categories and return a list of all categories except chosen BIC
 all_cats = doc.Settings.Categories
-chosen_category = all_cats.get_Item(chosen_bic)
-hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
+chosen_category_ids = [all_cats.get_Item(bic).Id for bic in chosen_bics]
 
-get_view_elements = DB.FilteredElementCollector(doc) \
-    .OfCategory(chosen_bic) \
+# hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
+
+# get_view_elements = DB.FilteredElementCollector(doc) \
+#     .OfCategory(chosen_bic[0]) \
+#     .WhereElementIsNotElementType() \
+#     .FirstElement()
+
+get_any_element = DB.FilteredElementCollector(doc) \
+    .OfCategory(chosen_bics[0]) \
     .WhereElementIsNotElementType() \
-    .ToElements()
+    .FirstElement()
 
-inst_param_dict = {}
-type_param_dict = {}
+_param_dict = {}
+# type_param_dict = {}
+# inst
+param_dict = {}
 
-#todo: filter out impossible storage types - image, workplane?
+# a list of Ids
+filterable_parameters = DB.ParameterFilterUtilities.GetFilterableParametersInCommon(doc, List[DB.ElementId](chosen_category_ids))
 
-for e in get_view_elements:
-    element_parameter_set = e.Parameters
-    for ip in element_parameter_set:
-        # if the parameter is shared - store as Id
-        if ip.IsShared and ip.Definition.Id not in inst_param_dict:
-            pretty_param_name = "".join([str(ip.Definition.Name), " [Shared Parameter]"])
-            inst_param_dict[ip.Definition.Id] = pretty_param_name
-        # if the param is BIP - store as BIP
-        elif ip.Definition.BuiltInParameter != DB.BuiltInParameter.INVALID and ip.Definition.Name not in inst_param_dict:
-            inst_param_dict[ip.Definition.BuiltInParameter]=str(ip.Definition.Name)
-        # another case - Project Parameters
-        elif not(ip.IsShared) and ip.Definition.Id not in inst_param_dict:
-            pretty_param_name = "".join([str(ip.Definition.Name), " [Project Parameter]"])
-            inst_param_dict[ip.Definition.Id] = pretty_param_name
-        #todo: add global params?
-    type_parameter_set = doc.GetElement(e.GetTypeId()).Parameters
-    for tp in type_parameter_set:
-        if tp.IsShared and tp.Definition.Id not in type_param_dict:
-            pretty_param_name = "".join([str(tp.Definition.Name), " [Shared Parameter]"])
-            type_param_dict[tp.Definition.Id] = pretty_param_name
-        elif tp.Definition.BuiltInParameter != DB.BuiltInParameter.INVALID and tp.Definition.Name not in type_param_dict:
-            type_param_dict[tp.Definition.BuiltInParameter]=str(tp.Definition.Name)
-        elif not(tp.IsShared) and tp.Definition.Id not in inst_param_dict:
-            pretty_param_name = "".join([str(tp.Definition.Name), " [Project Parameter]"])
-            inst_param_dict[tp.Definition.Id] = pretty_param_name
+
+
+for x in filterable_parameters:
+    if x.IntegerValue <0:
+        bip = match_bip_by_id(get_any_element, x)
+        if bip:
+            # print (bip.Definition.Name)
+            param_dict[bip] = bip.Definition.Name
+        # else:
+        #     print ("no match")
+    else:
+        # Shared Parameter or (?) Builtin parameter
+        shared_param = doc.GetElement(x)
+        param_dict[shared_param] = shared_param.Name
+
 
 # show UI form to pick parameters
-#todo: clean this
-instance_p_class = [ParameterOption(x, inst_param_dict) for x in inst_param_dict.keys()]
-type_p_class = [ParameterOption(x, type_param_dict) for x in type_param_dict.keys()]
-i_p_ops = sorted(instance_p_class, key=lambda x:x.name)
-t_p_ops = sorted(type_p_class, key=lambda x:x.name)
-ops = {"Type Parameters":t_p_ops, "Instance Parameters":i_p_ops}
+p_class = [ParameterOption(x, param_dict) for x in param_dict.keys()]
+p_ops = sorted(p_class, key=lambda x:x.name)
 
-#note: the selection will not actually be a parameter but either an Element Id or a BIP
-selected_parameter = forms.SelectFromList.show(ops,
+selected_parameter = forms.SelectFromList.show(p_ops,
                                                 button_name="Select Parameters",
                                                 multiselect = False)
 
 forms.alert_ifnot(selected_parameter, "No Parameters Selected", exitscript=True)
 
-
-# todo: would be nice to store the storage type here (but how?)
+print (selected_parameter)
 
 # get elements in current view
-first_el = get_view_elements[0]
+multicatfilter = DB.ElementMulticategoryFilter(List[BIC](chosen_bics))
+get_view_elements = DB.FilteredElementCollector(doc, view.Id).WherePasses(multicatfilter).ToElements()
 
 # selected_p_storage_type = database.p_storage_type(database.get_parameter_from_name(get_view_elements[0], selected_parameter))
 # print (selected_p_storage_type)
 # # sys.exit()
 
-
+print (len(get_view_elements))
 
 
 # {value of parameter : element id}
@@ -140,18 +157,20 @@ first_el = get_view_elements[0]
 values_dict = defaultdict(list)
 
 for el in get_view_elements:
-    if selected_parameter in inst_param_dict.keys():
-        el_parameter = el.get_Parameter(selected_parameter)
-        if el_parameter:
-            param_value = database.get_param_value_as_string(el_parameter)
-            # values_dict[param_value] = []
-            values_dict[param_value].append(el.Id)
-    else:
-        el_type =query.get_type(el)
-        element_type_parameter = el_type.get_Parameter(selected_parameter)
-        if element_type_parameter:
-            param_value = database.get_param_value_as_string(element_type_parameter)
-            values_dict[param_value].append(el.Id)
+    el_param = el.get_Parameter(selected_parameter)
+    print (el_param)
+    # if selected_parameter in inst_param_dict.keys():
+    #     el_parameter = el.get_Parameter(selected_parameter)
+    #     if el_parameter:
+    #         param_value = database.get_param_value_as_string(el_parameter)
+    #         # values_dict[param_value] = []
+    #         values_dict[param_value].append(el.Id)
+    # else:
+    #     el_type =query.get_type(el)
+    #     element_type_parameter = el_type.get_Parameter(selected_parameter)
+    #     if element_type_parameter:
+    #         param_value = database.get_param_value_as_string(element_type_parameter)
+    #         values_dict[param_value].append(el.Id)
 
 # debug value groups
 # for i in values_dict.keys():
