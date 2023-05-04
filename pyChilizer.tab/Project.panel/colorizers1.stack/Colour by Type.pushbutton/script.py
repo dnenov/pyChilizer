@@ -18,23 +18,32 @@ solid_fill_pattern = database.get_solid_fill_pat(doc=doc)
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
 category_opt_dict = {
-    "Windows" : BIC.OST_Windows,
-    "Doors" : BIC.OST_Doors,
-    "Floors" : BIC.OST_Floors,
-    "Walls" : BIC.OST_Walls,
-    "Generic Model" : BIC.OST_GenericModel,
-    "Casework" : BIC.OST_Casework,
-    "Furniture" : BIC.OST_Furniture,
+    "Casework": BIC.OST_Casework,
+    "Furniture": BIC.OST_Furniture,
     "Furniture Systems": BIC.OST_FurnitureSystems,
-    "Plumbing Fixtures" : BIC.OST_PlumbingFixtures,
+    "Electrical Equipment":BIC.OST_ElectricalEquipment,
+    "Electrical Fixtures":BIC.OST_ElectricalFixtures,
+    "Parking":BIC.OST_Parking,
+    "Site":BIC.OST_Site,
+    "Entourage":BIC.OST_Entourage,
+    "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
     "Roofs": BIC.OST_Roofs,
     "Specialty Equipment": BIC.OST_SpecialityEquipment,
     "Ceilings": BIC.OST_Ceilings,
-    "Curtain Wall Panels": BIC.OST_CurtainWallPanels
+    "Curtain Wall Panels": BIC.OST_CurtainWallPanels,
+    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
+    "Topography":BIC.OST_Topography,
+    "Structural Columns":BIC.OST_StructuralColumns,
+    "Structural Framing":BIC.OST_StructuralFraming,
+    "Stairs":BIC.OST_Stairs,
+    "Ramps":BIC.OST_Ramps,
+    "Walls":BIC.OST_Walls
 }
 
+sorted_cats = sorted(category_opt_dict.keys(), key=lambda x:x)
+
 if forms.check_modelview(revit.active_view):
-    selected_cat = forms.CommandSwitchWindow.show(category_opt_dict, message="Select Category to Colorize", width = 400)
+    selected_cat = forms.CommandSwitchWindow.show(sorted_cats, message="Select Category to Colorize", width = 400)
     if selected_cat == None:
         script.exit()
 
@@ -43,7 +52,7 @@ if forms.check_modelview(revit.active_view):
 # windows, doors, floors, walls, furniture, plumbing, casework,
 
 chosen_bic = [category_opt_dict[selected_cat]]
-if selected_cat == "Curtain Wall Panels": # not so elegant way to support curtain panels by adding walls category
+if selected_cat in ["Curtain Wall Panels", "Curtain Wall Mullions"]: # not so elegant way to support curtain panels by adding walls category
     chosen_bic.append(BIC.OST_Walls)
 
 # get all element categories and return a list of all categories except chosen BIC
@@ -52,25 +61,23 @@ chosen_category = [all_cats.get_Item(i) for i in chosen_bic]
 hide_categories_except = [c for c in all_cats if c.Id not in [i.Id for i in chosen_category]]
 
 
-get_view_elements = [DB.FilteredElementCollector(doc) \
-        .OfCategory(cb) \
+get_view_elements = DB.FilteredElementCollector(doc) \
+        .OfCategory(chosen_bic[0]) \
         .WhereElementIsNotElementType() \
-        .ToElements() for cb in chosen_bic 
-        ]
+        .ToElements()
 
 # print (get_view_elements)
 types_dict = defaultdict(set)
-for vl in get_view_elements:
-    for el in vl:
-        # discard nested shared - group under the parent family
-        if selected_cat in ["Floors", "Walls", "Ceilings"]:
+for el in get_view_elements:
+    # discard nested shared - group under the parent family
+    if selected_cat in ["Floors", "Walls", "Ceilings"]:
+        type_id = el.GetTypeId()
+    else:
+        try:
+            type_id = el.SuperComponent.GetTypeId()
+        except:
             type_id = el.GetTypeId()
-        else:
-            try:
-                type_id = el.SuperComponent.GetTypeId()
-            except:
-                type_id = el.GetTypeId()
-        types_dict[type_id].add(el.Id)
+    types_dict[type_id].add(el.Id)
     
 # # old method
 # colours = random_colour_hsv(len(types_dict))
