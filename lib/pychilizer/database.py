@@ -3,7 +3,7 @@
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils, PyRevitException
 from pyrevit.framework import List
 from collections import defaultdict
-
+from pychilizer import units
 def get_alphabetic_labels(nr):
     # get N letters A, B, C, etc or AA, AB, AC if N more than 26
     alphabet = [chr(i) for i in range(65, 91)]
@@ -566,6 +566,21 @@ def get_param_value_as_string(p):
     else:
         return
 
+def get_param_value_by_storage_type(p):
+    # get the value of the element parameter by storage type
+
+    if p.HasValue:
+        if p_storage_type(p) == "ElementId":
+            return p.AsElementId()
+        elif p_storage_type(p) == "Integer":
+            return p.AsInteger()
+        elif p_storage_type(p) == "Double":
+            return p.AsDouble()
+        elif p_storage_type(p) == "String":
+            return p.AsString()
+    else:
+        return
+
 
 def p_storage_type(param):
     return param.StorageType.ToString()
@@ -576,3 +591,8 @@ def get_parameter_from_name(el, param_name):
     for p in params:
         if p.Definition.Name == param_name:
             return p
+
+
+def get_builtin_label(bip_or_bic):
+    # returns a language-specific label for the bip or bic
+    return DB.LabelUtils.GetLabelFor(bip_or_bic)

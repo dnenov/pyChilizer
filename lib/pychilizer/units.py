@@ -8,12 +8,15 @@ def convert_length_to_internal(value, doc=revit.doc):
     return converted
 
 
+def convert_length_to_display(value, doc=revit.doc):
+    # convert lenght units to display from internal
+    display_units = get_length_units(doc)
+    converted = DB.UnitUtils.ConvertFromInternalUnits(value, display_units)
+    return converted
+
 def get_length_units(doc):
     # fetch Revit's internal units depending on the Revit version
     units = doc.GetUnits()
-
-    # print ("Doc name {}".format(doc.Title))
-
     if HOST_APP.is_newer_than(2021):
         int_length_units = units.GetFormatOptions(DB.SpecTypeId.Length).GetUnitTypeId()
     else:

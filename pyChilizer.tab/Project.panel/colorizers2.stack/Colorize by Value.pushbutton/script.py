@@ -171,7 +171,7 @@ for x in range(10):
 
 override_filters = 0
 
-with revit.Transaction("Colorize by Value"):
+with revit.Transaction("Colorize by Value", doc):
     for param_value, c in zip(values_dict.keys(), revit_colours):
 
         override = DB.OverrideGraphicSettings()
