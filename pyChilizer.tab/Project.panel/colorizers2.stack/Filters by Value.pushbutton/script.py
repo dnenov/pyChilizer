@@ -10,7 +10,7 @@ import filterbyvalueconfig
 from collections import defaultdict
 from pyrevit.revit.db import query
 from pyrevit.forms import reactive, WPF_VISIBLE, WPF_COLLAPSED
-
+from Autodesk.Revit import Exceptions
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 BIP = DB.BuiltInParameter
@@ -73,38 +73,30 @@ def get_multicat_param_storage_type(categories_list, parameter):
             if type_parameter:
                 return database.p_storage_type(type_parameter)
 
+def id_from_guid(categories_list, guid):
 
-import math
+    for bic in categories_list:
+
+        # iterating through each category helps address cases where some selected categories are not present in the model
+        any_element_of_cat = DB.FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType().ToElements()
+        for el in any_element_of_cat:
+            element_i_params = el.Parameters
+            for p in element_i_params:
+                try:
+                    if p.GUID== guid:
+                        return p.Id
+                except Exceptions.InvalidOperationException:
+                    pass
+            element_t_params = query.get_type(el).Parameters
+            for p in element_t_params:
+                try:
+                    if p.GUID and p.GUID == guid:
+                        return p.Id
+                except Exceptions.InvalidOperationException:
+                    pass
+    return None
 
 
-def round_decimals_up(number, decimals=2):
-    """
-    Returns a value rounded up to a specific number of decimal places.
-    """
-    if not isinstance(decimals, int):
-        raise TypeError("decimal places must be an integer")
-    elif decimals < 0:
-        raise ValueError("decimal places has to be 0 or more")
-    elif decimals == 0:
-        return math.ceil(number)
-
-    factor = 10 ** decimals
-    return math.ceil(number * factor) / factor
-
-
-def truncate(number, decimals=2):
-    """
-    Returns a value truncated to a specific number of decimal places.
-    """
-    if not isinstance(decimals, int):
-        raise TypeError("decimal places must be an integer.")
-    elif decimals < 0:
-        raise ValueError("decimal places has to be 0 or more.")
-    elif decimals == 0:
-        return math.trunc(number)
-
-    factor = 10.0 ** decimals
-    return math.trunc(number * factor) / factor
 
 category_opt_dict = {
     "Windows": BIC.OST_Windows,
@@ -141,7 +133,6 @@ if selected_cat == None:
     script.exit()
 # format the category dictionary
 chosen_bics = [category_opt_dict[c] for c in selected_cat]
-# print (chosen_bics)
 # get all element categories and return a list of all categories except chosen BIC
 all_cats = doc.Settings.Categories
 chosen_category_ids = [all_cats.get_Item(bic).Id for bic in chosen_bics]
@@ -183,8 +174,6 @@ selected_parameter = forms.SelectFromList.show(p_ops,
                                                multiselect=False)
 
 forms.alert_ifnot(selected_parameter, "No Parameters Selected", exitscript=True)
-#todo: test with different kinds of params, includint SHARED
-# print(selected_parameter ,type(selected_parameter))
 
 values = []
 
@@ -196,93 +185,60 @@ symbol_parameters = [DB.BuiltInParameter.SYMBOL_NAME_PARAM,
 # get the storage type of the selected parameter - used when constructing filters
 selected_param_storage_type = get_multicat_param_storage_type(chosen_bics, selected_parameter)
 
-# def gather_param_values (collected, parameter, storage_type):
-#     if parameter and selected_parameter not in symbol_parameters:
-#         el_param_value = database.get_param_value_by_storage_type(parameter)
-#         if selected_param_storage_type != "Double":
-#             if el_param_value and el_param_value not in values:
-#                 collected.append(el_param_value)
-#         else:
-#             display_value = el_param.AsValueString()
-#             values_set = {display_value : el_param_value}
-#             if len(collected) >0:
-#                 for v in collected:
-#                     print (list(v)[0]!= display_value)
-#                     if list(v)[0]!= display_value:
-#                         collected.append(values_set)
-#             else:
-#                 collected.append(values_set)
-
 # iterate through elements in view and gather all unique values of selected parameter
 for el in get_view_elements:
+    # print (database.get_name(el), el.Id, type(el))
     el_param = el.get_Parameter(selected_parameter)
     # if the element is an instance parameter and not a symbol parameter, query its value
 
-    if el_param and selected_parameter not in symbol_parameters:
+    if el_param and database.get_param_value_by_storage_type(el_param) and selected_parameter not in symbol_parameters:
         el_param_value = database.get_param_value_by_storage_type(el_param)
-        if selected_param_storage_type != "Double":
-            if el_param_value and el_param_value not in values:
-                values.append(el_param_value)
-        else:
-            display_value = el_param.AsValueString()
-            values_set = {display_value : el_param_value}
-            if len(values) >0:
-                ks = [list(x)[0] for x in values]
-                if display_value not in ks:
-                    values.append(values_set)
+
+        if el_param_value:
+            if selected_param_storage_type != "Double":
+                if el_param_value and el_param_value not in values:
+
+                    values.append(el_param_value)
             else:
-                values.append(values_set)
+                display_value = el_param.AsValueString()
+                values_set = {display_value : el_param_value}
+                if len(values) >0:
+                    ks = [list(x)[0] for x in values]
+                    if display_value not in ks:
+                        values.append(values_set)
+                else:
+                    values.append(values_set)
     # if not - look for the parameter of the type of the element
     else:
-        el_type_param = query.get_type(el).get_Parameter(selected_parameter)
+
+        el_type = query.get_type(el)
+
+        el_type_param = el_type.get_Parameter(selected_parameter)
         if el_type_param:
+
             el_type_param_value = database.get_param_value_by_storage_type(el_type_param)
+
             if selected_param_storage_type != "Double":
                 if el_type_param_value and el_type_param_value not in values:
                     values.append(el_type_param_value)
             else:
+                # print ("got type with value double, {} ".format( el_type_param.Id))
                 display_value = el_type_param.AsValueString()
-                values_set = {display_value : el_type_param_value}
-                if len(values) >0:
-                    for v in values:
-                        ks = [list(x)[0] for x in values]
-                        if display_value not in ks:
-                            values.append(values_set)
-                else:
-                    values.append(values_set)
 
-
-
-# for el in get_view_elements:
-#     # discard nested shared - group under the parent family
-#     if selected_cat in ["Floors", "Walls", "Roofs"]:
-#         types_in_view[database.get_name(el)] = el.GetTypeId()
-#     else:
-#         if el.SuperComponent:
-#             types_in_view[database.family_and_type_names(el.SuperComponent)] = el.SuperComponent.GetTypeId()
-#         else:
-#             types_in_view[database.family_and_type_names(el)] = el.GetTypeId()
-#
-#
-# # iterate through unique types
-# for type_name in return_types:
-#     # note: names will be used as keys
-#     type_id = types_in_view[type_name]
-#     # type_name = database.get_name(doc.GetElement(type_id))
-#
-#     if type_name not in types_dict.values():
-#         types_dict[type_id] = type_name
-#     # this bit is no longer necessary
-#     else:
-#         while type_name in types_dict.values():
-#             type_name = type_name + "(2)"
-#         types_dict[type_id] = type_name
+                if el_type_param_value:
+                    values_set = {display_value : el_type_param_value}
+                    if len(values) >0:
+                        for v in values:
+                            ks = [list(x)[0] for x in values]
+                            if display_value not in ks:
+                                values.append(values_set)
+                    else:
+                        values.append(values_set)
 
 # colour dictionary
 n = len(values)
-# print (values)
-# sys.exit()
-# print("values nr", n)
+# print ("Values {} ".format(values))
+
 
 forms.alert_ifnot(n > 0, "There are no values found for the selected parameter.", exitscript=True)
 if n < 14:
@@ -301,14 +257,13 @@ for x in range(10):
 
 override_filters = 0
 
-# print(selected_param_storage_type)
-# sys.exit()
-# type_name_param = DB.BuiltInParameter.ALL_MODEL_TYPE_NAME
-# dictionary of parameters{param value as string : [ids]}
-
 # parameter id for filters
 if isinstance(selected_parameter, DB.BuiltInParameter):
     parameter_id = DB.ElementId(selected_parameter)
+
+else:
+    parameter_id = id_from_guid(chosen_bics, selected_parameter)
+    forms.alert_ifnot(parameter_id, "no id found for parameter {}".format(selected_parameter), exitscript=True)
 
 def create_filter(filter_name, bics_list, doc=revit.doc):
     cat_list = List[DB.ElementId](DB.ElementId(cat) for cat in bics_list)
@@ -324,10 +279,10 @@ with revit.Transaction("Filters by Value", doc):
             override.SetCutLineColor(c)
         if "Projection Surface Colour" in overrides_option:
             override.SetSurfaceForegroundPatternColor(c)
-            override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
+            override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc).Id)
         if "Cut Pattern Colour" in overrides_option:
             override.SetCutForegroundPatternColor(c)
-            override.SetCutForegroundPatternId(database.get_solid_fill_pat().Id)
+            override.SetCutForegroundPatternId(database.get_solid_fill_pat(doc).Id)
 
         # create a filter for each param value
         if selected_param_storage_type == "ElementId":
@@ -335,13 +290,12 @@ with revit.Transaction("Filters by Value", doc):
         elif selected_param_storage_type == "Double":
             value_name = list(param_value)[0]
             param_value = param_value[value_name]
-            # print("Display {} values {}".format(value_name, param_value) )
         else:
             value_name = str(param_value)
-        filter_name = param_dict[selected_parameter] + " - " + value_name
+        filter_name = param_dict[selected_parameter].replace(" [Shared Parameter]", "") + " - " + value_name
         filter_id = None
         # check if the filter with the given name already exists
-        filter_exists = database.check_filter_exists(filter_name)
+        filter_exists = database.check_filter_exists(filter_name, doc)
         # choose to override or not. Remember the choice and not ask again within the same run
         if filter_exists and override_filters == 0:
             use_existent = forms.alert(
