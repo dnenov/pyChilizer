@@ -22,15 +22,14 @@ overrides_option = filterbyvalueconfig.get_config()
 
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
-# [ ] test in R2022
+# [x] test in R2022
 # [x] test in R2023
-# [ ] exclude irrelevant builtin params
-# [ ] use labels instead of hard-coded names for BIC
+# [x] use labels instead of hard-coded names for BIC
 
 # OTHER NOTES
 # for parameters with storage type Double
 EPSILON = 0.01
-
+SHARED_PARAMETER_LABEL = " [Shared Parameter]"
 
 class ParameterOption(forms.TemplateListItem):
     """Wrapper for selecting parameters from a list"""
@@ -45,6 +44,7 @@ class ParameterOption(forms.TemplateListItem):
 
 
 def match_bip_by_id(categories_list, id):
+    # get the BIP from the provided Id
     for bic in categories_list:
         # iterating through each category helps address cases where some selected categories are not present in the model
         any_element_of_cat = DB.FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType().FirstElement()
@@ -60,6 +60,7 @@ def match_bip_by_id(categories_list, id):
     return None
 
 def get_multicat_param_storage_type(categories_list, parameter):
+    # get the storage type of parameter, aided by a given categories list
     for bic in categories_list:
         any_element_of_cat = DB.FilteredElementCollector(doc)\
             .OfCategory(bic)\
@@ -74,9 +75,8 @@ def get_multicat_param_storage_type(categories_list, parameter):
                 return database.p_storage_type(type_parameter)
 
 def id_from_guid(categories_list, guid):
-
+    # from the GUID, return the id of the shared parameter
     for bic in categories_list:
-
         # iterating through each category helps address cases where some selected categories are not present in the model
         any_element_of_cat = DB.FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType().ToElements()
         for el in any_element_of_cat:
@@ -97,33 +97,34 @@ def id_from_guid(categories_list, guid):
     return None
 
 
+categories_selection_list = [BIC.OST_Windows,
+    BIC.OST_Doors,
+    BIC.OST_Floors,
+    BIC.OST_Walls,
+    BIC.OST_GenericModel,
+    BIC.OST_Casework,
+    BIC.OST_Furniture,
+    BIC.OST_FurnitureSystems,
+    BIC.OST_PlumbingFixtures,
+    BIC.OST_Roofs,
+    BIC.OST_ElectricalEquipment,
+    BIC.OST_ElectricalFixtures,
+    BIC.OST_Parking,
+    BIC.OST_Site,
+    BIC.OST_Entourage,
+    BIC.OST_Ceilings,
+    BIC.OST_CurtainWallPanels,
+    BIC.OST_CurtainWallMullions,
+    BIC.OST_Topography,
+    BIC.OST_StructuralColumns,
+    BIC.OST_StructuralFraming,
+    BIC.OST_Stairs,
+    BIC.OST_Ramps]
+category_opt_dict = {}
+for cat in categories_selection_list:
+    category_opt_dict[DB.LabelUtils.GetLabelFor(cat)]=cat
 
-category_opt_dict = {
-    "Windows": BIC.OST_Windows,
-    "Doors": BIC.OST_Doors,
-    "Floors": BIC.OST_Floors,
-    "Walls": BIC.OST_Walls,
-    "Generic Model": BIC.OST_GenericModel,
-    "Casework": BIC.OST_Casework,
-    "Furniture": BIC.OST_Furniture,
-    "Furniture Systems": BIC.OST_FurnitureSystems,
-    "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
-    "Roofs": BIC.OST_Roofs,
-    "Electrical Equipment": BIC.OST_ElectricalEquipment,
-    "Electrical Fixtures": BIC.OST_ElectricalFixtures,
-    "Parking": BIC.OST_Parking,
-    "Site": BIC.OST_Site,
-    "Entourage": BIC.OST_Entourage,
-    "Ceilings": BIC.OST_Ceilings,
-    "Curtain Wall Panels": BIC.OST_CurtainWallPanels,
-    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
-    "Topography": BIC.OST_Topography,
-    "Structural Columns": BIC.OST_StructuralColumns,
-    "Structural Framing": BIC.OST_StructuralFraming,
-    "Stairs": BIC.OST_Stairs,
-    "Ramps": BIC.OST_Ramps,
-}
-
+# ask the user for category/categories from the list
 if forms.check_modelview(revit.active_view):
     selected_cat = forms.SelectFromList.show(sorted(category_opt_dict),
                                              message="Select Category to Colorize",
@@ -162,7 +163,7 @@ for id in filterable_parameter_ids:
     else:
         # Shared Parameter or (?) Builtin parameter
         shared_param = doc.GetElement(id)
-        param_dict[shared_param.GuidValue] = shared_param.Name + " [Shared Parameter]"
+        param_dict[shared_param.GuidValue] = shared_param.Name + SHARED_PARAMETER_LABEL
 
 forms.alert_ifnot(param_dict, "No parameters or elements found for selected categories", exitscript=True)
 # show UI form to pick parameters
@@ -184,10 +185,13 @@ symbol_parameters = [DB.BuiltInParameter.SYMBOL_NAME_PARAM,
 
 # get the storage type of the selected parameter - used when constructing filters
 selected_param_storage_type = get_multicat_param_storage_type(chosen_bics, selected_parameter)
-
+# print (selected_parameter)
 # iterate through elements in view and gather all unique values of selected parameter
+# this is a complex if-else maze to account for cases where:
+# * shared parameters can be both type and instance
+# BIP can exist for both type and instance
+# parameters can exist for both main and nested elements
 for el in get_view_elements:
-    # print (database.get_name(el), el.Id, type(el))
     el_param = el.get_Parameter(selected_parameter)
     # if the element is an instance parameter and not a symbol parameter, query its value
 
@@ -196,10 +200,12 @@ for el in get_view_elements:
 
         if el_param_value:
             if selected_param_storage_type != "Double":
-                if el_param_value and el_param_value not in values:
-
+                if el_param_value and el_param_value not in values and el_param_value!= DB.ElementId.InvalidElementId:
                     values.append(el_param_value)
             else:
+                # special approach for values stored as a Double :
+                # store 2 names - pretty AsValueString name for the filter name
+                # and the actual value as a double
                 display_value = el_param.AsValueString()
                 values_set = {display_value : el_param_value}
                 if len(values) >0:
@@ -209,20 +215,16 @@ for el in get_view_elements:
                 else:
                     values.append(values_set)
     # if not - look for the parameter of the type of the element
-    else:
-
+    # excluded workset parameter to ignore non user-created worksets
+    elif selected_parameter != BIP.ELEM_PARTITION_PARAM:
         el_type = query.get_type(el)
-
         el_type_param = el_type.get_Parameter(selected_parameter)
         if el_type_param:
-
             el_type_param_value = database.get_param_value_by_storage_type(el_type_param)
-
             if selected_param_storage_type != "Double":
-                if el_type_param_value and el_type_param_value not in values:
+                if el_type_param_value and el_type_param_value not in values and el_type_param_value!= DB.ElementId.InvalidElementId:
                     values.append(el_type_param_value)
             else:
-                # print ("got type with value double, {} ".format( el_type_param.Id))
                 display_value = el_type_param.AsValueString()
 
                 if el_type_param_value:
@@ -238,7 +240,6 @@ for el in get_view_elements:
 # colour dictionary
 n = len(values)
 # print ("Values {} ".format(values))
-
 
 forms.alert_ifnot(n > 0, "There are no values found for the selected parameter.", exitscript=True)
 if n < 14:
@@ -264,7 +265,6 @@ if isinstance(selected_parameter, DB.BuiltInParameter):
 else:
     parameter_id = id_from_guid(chosen_bics, selected_parameter)
     forms.alert_ifnot(parameter_id, "no id found for parameter {}".format(selected_parameter), exitscript=True)
-
 def create_filter(filter_name, bics_list, doc=revit.doc):
     cat_list = List[DB.ElementId](DB.ElementId(cat) for cat in bics_list)
     filter = DB.ParameterFilterElement.Create(doc, filter_name, cat_list)
@@ -292,7 +292,9 @@ with revit.Transaction("Filters by Value", doc):
             param_value = param_value[value_name]
         else:
             value_name = str(param_value)
-        filter_name = param_dict[selected_parameter].replace(" [Shared Parameter]", "") + " - " + value_name
+        filter_name = param_dict[selected_parameter].replace(SHARED_PARAMETER_LABEL, "") + " - " + value_name
+        # replace forbidden characters:
+        filter_name = filter_name.strip("{}[]:\|?/<>*")
         filter_id = None
         # check if the filter with the given name already exists
         filter_exists = database.check_filter_exists(filter_name, doc)
@@ -320,13 +322,16 @@ with revit.Transaction("Filters by Value", doc):
             elif selected_param_storage_type == "Double":
                 equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value, EPSILON)
             elif selected_param_storage_type == "String":
-                equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value)
+                try:
+                    equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value)
+                except TypeError: # different method in versions earlier than R2023
+                    equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value, True)
+
             f_rules = List[DB.FilterRule]([equals_rule])
             parameter_filter = database.filter_from_rules(f_rules)
             new_filter = create_filter(filter_name, chosen_bics)
             new_filter.SetElementFilter(parameter_filter)
             filter_id = new_filter.Id
             # add filter to view
-            # #todo! remove if filter already applied
             view.AddFilter(filter_id)
         view.SetFilterOverrides(filter_id, override)
