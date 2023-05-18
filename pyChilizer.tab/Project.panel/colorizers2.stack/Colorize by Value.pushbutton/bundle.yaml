@@ -1,4 +1,7 @@
 title: "Colorize by Value"
 tooltip: |
-  Colour-code elements by parameter values in current view. Override by Element
+  Colour-code elements in current view by the chosen parameter.
+  This tool uses the 'Override by Element' method and does not create filters. 
+  Note: The appearance of elements will not change if the parameter changes! Use 'Reset Overrides' and re-run the tool again for updated results. 
+  Or use the Filters by Value to see results that change in real time.
   Author: Daria Ivanciucova

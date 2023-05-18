@@ -27,7 +27,7 @@ overrides_option = filterbyvalueconfig.get_config()
 # [x] fix case Function Interior undetected
 
 # OTHER NOTES
-EPSILON = 0.01  # for parameters with storage type Double
+EPSILON = 0.001  # for parameters with storage type Double
 SHARED_PARAMETER_LABEL = " [Shared Parameter]"
 
 
