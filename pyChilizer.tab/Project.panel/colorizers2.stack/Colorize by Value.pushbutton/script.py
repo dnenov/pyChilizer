@@ -38,31 +38,33 @@ class ParameterOption(forms.TemplateListItem):
         return str(self.param_dict[self.item])
 
 
-category_opt_dict = {
-    "Windows": BIC.OST_Windows,
-    "Doors": BIC.OST_Doors,
-    "Floors": BIC.OST_Floors,
-    "Walls": BIC.OST_Walls,
-    "Generic Model": BIC.OST_GenericModel,
-    "Casework": BIC.OST_Casework,
-    "Furniture": BIC.OST_Furniture,
-    "Furniture Systems": BIC.OST_FurnitureSystems,
-    "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
-    "Roofs": BIC.OST_Roofs,
-    "Electrical Equipment": BIC.OST_ElectricalEquipment,
-    "Electrical Fixtures": BIC.OST_ElectricalFixtures,
-    "Parking": BIC.OST_Parking,
-    "Site": BIC.OST_Site,
-    "Entourage": BIC.OST_Entourage,
-    "Ceilings": BIC.OST_Ceilings,
-    "Curtain Wall Panels": BIC.OST_CurtainWallPanels,
-    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
-    "Topography":BIC.OST_Topography,
-    "Structural Columns":BIC.OST_StructuralColumns,
-    "Structural Framing":BIC.OST_StructuralFraming,
-    "Stairs":BIC.OST_Stairs,
-    "Ramps":BIC.OST_Ramps,
-}
+categories_selection_list = [BIC.OST_Windows,
+                             BIC.OST_Doors,
+                             BIC.OST_Floors,
+                             BIC.OST_Walls,
+                             BIC.OST_GenericModel,
+                             BIC.OST_Casework,
+                             BIC.OST_Furniture,
+                             BIC.OST_FurnitureSystems,
+                             BIC.OST_PlumbingFixtures,
+                             BIC.OST_Roofs,
+                             BIC.OST_ElectricalEquipment,
+                             BIC.OST_ElectricalFixtures,
+                             BIC.OST_Parking,
+                             BIC.OST_Site,
+                             BIC.OST_Entourage,
+                             BIC.OST_Ceilings,
+                             BIC.OST_CurtainWallPanels,
+                             BIC.OST_CurtainWallMullions,
+                             BIC.OST_Topography,
+                             BIC.OST_StructuralColumns,
+                             BIC.OST_StructuralFraming,
+                             BIC.OST_Stairs,
+                             BIC.OST_Ramps]
+category_opt_dict = {}
+for cat in categories_selection_list:
+    category_opt_dict[database.get_builtin_label(cat)] = cat
+
 
 if forms.check_modelview(revit.active_view):
     selected_cat = forms.CommandSwitchWindow.show(sorted(category_opt_dict), message="Select Category to Colorize",
@@ -136,9 +138,9 @@ forms.alert_ifnot(selected_parameter, "No Parameters Selected", exitscript=True)
 # get elements in current view
 first_el = get_view_elements[0]
 
-# {value of parameter : element id}
+
 # need a nested dictionary
-values_dict = defaultdict(list)
+values_dict = defaultdict(list) # {value of parameter : element id}
 
 for el in get_view_elements:
     if selected_parameter in inst_param_dict.keys():
@@ -156,24 +158,12 @@ for el in get_view_elements:
 
 # colour dictionary
 n = len(values_dict.keys())
-
-if n < 14:
-    colours = colorize.basic_colours()
-else:
-    colours = colorize.rainbow()
-col_dict = colorize.polylinear_gradient(colours, n)
-chop_col_list = col_dict["hex"][0:n]
-# gradient method
-revit_colours = [colorize.revit_colour(h) for h in chop_col_list]
-
-for x in range(10):
-    random.shuffle(revit_colours)
+revit_colours = colorize.get_colours(n)
 
 override_filters = 0
 
 with revit.Transaction("Colorize by Value", doc):
     for param_value, c in zip(values_dict.keys(), revit_colours):
-
         override = DB.OverrideGraphicSettings()
         if "Projection Line Colour" in overrides_option:
             override.SetProjectionLineColor(c)

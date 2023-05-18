@@ -4,6 +4,8 @@ from pyrevit import revit, DB, script, forms, HOST_APP, coreutils, PyRevitExcept
 from pyrevit.framework import List
 from collections import defaultdict
 from pychilizer import units
+from pyrevit.revit.db import query
+from Autodesk.Revit import Exceptions
 def get_alphabetic_labels(nr):
     # get N letters A, B, C, etc or AA, AB, AC if N more than 26
     alphabet = [chr(i) for i in range(65, 91)]
@@ -596,3 +598,31 @@ def get_parameter_from_name(el, param_name):
 def get_builtin_label(bip_or_bic):
     # returns a language-specific label for the bip or bic
     return DB.LabelUtils.GetLabelFor(bip_or_bic)
+
+def create_filter_by_name_bics(filter_name, bics_list, doc=revit.doc):
+    cat_list = List[DB.ElementId](DB.ElementId(cat) for cat in bics_list)
+    filter = DB.ParameterFilterElement.Create(doc, filter_name, cat_list)
+    return filter
+
+def shared_param_id_from_guid(categories_list, guid, doc=revit.doc):
+    # from the GUID, return the id of the shared parameter
+    for bic in categories_list:
+        # iterating through each category helps address cases where some selected categories are not present in the model
+        any_element_of_cat = DB.FilteredElementCollector(doc).OfCategory(
+            bic).WhereElementIsNotElementType().ToElements()
+        for el in any_element_of_cat:
+            element_i_params = el.Parameters
+            for p in element_i_params:
+                try:
+                    if p.GUID == guid:
+                        return p.Id
+                except Exceptions.InvalidOperationException:
+                    pass
+            element_t_params = query.get_type(el).Parameters
+            for p in element_t_params:
+                try:
+                    if p.GUID and p.GUID == guid:
+                        return p.Id
+                except Exceptions.InvalidOperationException:
+                    pass
+    return None
