@@ -1,4 +1,6 @@
 title: "Filter by Value"
 tooltip: |
-  Colour-code elements by values if chosen parameter in current view.
+  Colour-code elements in current view using View Filters and Values of a chosen Parameter. 
+  This tool supports multi-category filters. For parameter values stored as Double the filter precision is 0.001ft (0.3048 mm). 
+  Only filterable parameters are supported. The name of the filter will be Parameter - Value
   Author: Daria Ivanciucova

@@ -13,6 +13,7 @@ import colorsys
 
 # swatches for gradient
 
+# colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
 
 def basic_colours():
@@ -124,3 +125,20 @@ def random_colour_hsv(n):
         revit_colour = DB.Color(rgb[0], rgb[1], rgb[2])
         rgb_out.append(revit_colour)
     return rgb_out
+
+
+def get_colours(n):
+    if n < 14:
+        colours = basic_colours()
+    else:
+        colours = rainbow()
+    col_dict = polylinear_gradient(colours, n)
+    chop_col_list = col_dict["hex"][0:n]
+    # gradient method
+    revit_colours = [revit_colour(h) for h in chop_col_list]
+    # random method
+    # revit_colours = colorize.random_colour_hsv(len(types_dict))
+
+    for x in range(10):
+        random.shuffle(revit_colours)
+    return revit_colours

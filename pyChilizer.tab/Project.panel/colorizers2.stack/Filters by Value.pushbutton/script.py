@@ -1,226 +1,281 @@
 import sys
 
-from pyrevit import forms
-from pyrevit import revit, DB
+from pyrevit import revit, DB, forms
 from pyrevit import script
 import random
 from pychilizer import database
 from pychilizer import colorize
 from pyrevit.framework import List
-import config
+import filterbyvalueconfig
 from collections import defaultdict
-
+from pyrevit.revit.db import query
+from pyrevit.forms import reactive, WPF_VISIBLE, WPF_COLLAPSED
+from Autodesk.Revit import Exceptions
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
+BIP = DB.BuiltInParameter
 doc = revit.doc
 view = revit.active_view
 
-overrides_option = config.get_config()
-
-
-# colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
+overrides_option = filterbyvalueconfig.get_config()
 
 # [x] test in R2022
-# [ ] test in R2023
-# [ ] exclude irrelevant builtin params
+# [x] test in R2023
+# [x] use labels instead of hard-coded names for BIC
+# [x] fix case Workset1 undetected
+# [x] fix case Function Interior undetected
 
-category_opt_dict = {
-    "Windows": BIC.OST_Windows,
-    "Doors": BIC.OST_Doors,
-    "Floors": BIC.OST_Floors,
-    "Walls": BIC.OST_Walls,
-    "Generic Model": BIC.OST_GenericModel,
-    "Casework": BIC.OST_Casework,
-    "Furniture": BIC.OST_Furniture,
-    "Furniture Systems": BIC.OST_FurnitureSystems,
-    "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
-    "Roofs": BIC.OST_Roofs,
-}
+# OTHER NOTES
+EPSILON = 0.001  # for parameters with storage type Double
+SHARED_PARAMETER_LABEL = " [Shared Parameter]"
 
+
+class ParameterOption(forms.TemplateListItem):
+    """Wrapper for selecting parameters from a list"""
+
+    def __init__(self, param, param_dict):
+        super(ParameterOption, self).__init__(param)
+        self.param_dict = param_dict
+
+    @property
+    def name(self):
+        return str(self.param_dict[self.item])
+
+
+def match_bip_by_id(categories_list, id):
+    # get the BIP from the provided Id
+    for bic in categories_list:
+        # iterating through each category helps address cases where some selected categories are not present in the model
+        any_element_of_cat = DB.FilteredElementCollector(doc).OfCategory(
+            bic).WhereElementIsNotElementType().FirstElement()
+        if any_element_of_cat:
+            element_i_params = any_element_of_cat.Parameters
+            element_t_params = query.get_type(any_element_of_cat).Parameters
+            for p in element_i_params:
+                if p.Id == id:
+                    return p.Definition.BuiltInParameter
+            for p in element_t_params:
+                if p.Id == id:
+                    return p.Definition.BuiltInParameter
+    return None
+
+
+def get_multicat_param_storage_type(categories_list, parameter):
+    # get the storage type of parameter, aided by a given categories list
+    for bic in categories_list:
+        any_element_of_cat = DB.FilteredElementCollector(doc) \
+            .OfCategory(bic) \
+            .WhereElementIsNotElementType() \
+            .FirstElement()
+        if any_element_of_cat:
+            instance_parameter = any_element_of_cat.get_Parameter(parameter)
+            if instance_parameter:
+                return database.p_storage_type(instance_parameter)
+            type_parameter = query.get_type(any_element_of_cat).get_Parameter(parameter)
+            if type_parameter:
+                return database.p_storage_type(type_parameter)
+
+
+def add_param_value(param, param_storage_type, values):
+    el_parameter_value = database.get_param_value_by_storage_type(param)
+    if el_parameter_value and param_storage_type == "Double":
+        # special approach for values stored as a Double :
+        # {pretty AsValueString name for the filter name : actual value as a double}
+        display_value = param.AsValueString()
+        values_set = {display_value: el_parameter_value}
+        if len(values) > 0 and display_value not in [x.keys() for x in values]:
+            values.append(values_set)
+        else:
+            return values.append(values_set)
+    elif el_parameter_value is not None \
+            and el_parameter_value not in values \
+            and el_parameter_value != DB.ElementId.InvalidElementId:
+        return values.append(el_parameter_value)
+    return
+
+
+# banned list - parameters that exist for instance elements, but their values will be empty
+banned_symbol_parameters = [DB.BuiltInParameter.SYMBOL_NAME_PARAM,
+                            DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM]
+
+categories_selection_list = [BIC.OST_Windows,
+                             BIC.OST_Doors,
+                             BIC.OST_Floors,
+                             BIC.OST_Walls,
+                             BIC.OST_GenericModel,
+                             BIC.OST_Casework,
+                             BIC.OST_Furniture,
+                             BIC.OST_FurnitureSystems,
+                             BIC.OST_PlumbingFixtures,
+                             BIC.OST_Roofs,
+                             BIC.OST_ElectricalEquipment,
+                             BIC.OST_ElectricalFixtures,
+                             BIC.OST_Parking,
+                             BIC.OST_Site,
+                             BIC.OST_Entourage,
+                             BIC.OST_Ceilings,
+                             BIC.OST_CurtainWallPanels,
+                             BIC.OST_CurtainWallMullions,
+                             BIC.OST_Topography,
+                             BIC.OST_StructuralColumns,
+                             BIC.OST_StructuralFraming,
+                             BIC.OST_Stairs,
+                             BIC.OST_Ramps]
+category_opt_dict = {}
+for cat in categories_selection_list:
+    category_opt_dict[database.get_builtin_label(cat)] = cat
+
+# ask the user for category/categories from the list
 if forms.check_modelview(revit.active_view):
-    selected_cat = forms.CommandSwitchWindow.show(sorted(category_opt_dict), message="Select Category to Colorize",
-                                                  width=400)
+    selected_cat = forms.SelectFromList.show(sorted(category_opt_dict),
+                                             message="Select Category to Colorize",
+                                             multiselect=True,
+                                             width=400)
+if selected_cat == None:
+    script.exit()
 # format the category dictionary
-chosen_bic = category_opt_dict[selected_cat]
-
+chosen_bics = [category_opt_dict[c] for c in selected_cat]
 # get all element categories and return a list of all categories except chosen BIC
 all_cats = doc.Settings.Categories
-chosen_category = all_cats.get_Item(chosen_bic)
-hide_categories_except = [c for c in all_cats if c.Id != chosen_category.Id]
+chosen_category_ids = [all_cats.get_Item(bic).Id for bic in chosen_bics]
 
-get_view_elements = DB.FilteredElementCollector(doc) \
-    .OfCategory(chosen_bic) \
-    .WhereElementIsNotElementType() \
-    .ToElements()
+# get elements of chosen categories in current view
+multicatfilter = DB.ElementMulticategoryFilter(List[BIC](chosen_bics))
+get_view_elements = DB.FilteredElementCollector(doc, view.Id).WherePasses(multicatfilter).ToElements()
 
-# dictionary of parameters{param value as string : [ids]}
+param_dict = {}
 
-ins_p_names_lst = []
-type_p_names_lst = []
-for e in get_view_elements:
+# a list of Ids of parameters that can be used for filters
+filterable_parameter_ids = DB.ParameterFilterUtilities.GetFilterableParametersInCommon(doc, List[DB.ElementId](
+    chosen_category_ids))
 
-    element_parameter_set = e.Parameters
-    for ip in element_parameter_set:
-        ins_p_name = ip.Definition.Name
-        if ins_p_name not in ins_p_names_lst:
-            ins_p_names_lst.append(ins_p_name)
-    type_parameter_set = doc.GetElement(e.GetTypeId()).Parameters
-    for tp in type_parameter_set:
-        type_p_name = tp.Definition.Name
-        if type_p_name not in type_p_names_lst:
-            type_p_names_lst.append(type_p_name)
-ins_p_names_lst.sort()
-type_p_names_lst.sort()
+forms.alert_ifnot(filterable_parameter_ids.Count != 0, "No parameters are common for selected categories",
+                  exitscript=True)
+
+for id in filterable_parameter_ids:
+    # the Id of BuiltInParameters is a negative one
+    if id.IntegerValue < 0:
+        # iterate through all parameters of an element of category(ies)
+        # until the Id of the parameter matches the id from the list of filterable parameters
+        bip = match_bip_by_id(chosen_bics, id)
+        if bip:
+            param_dict[bip] = database.get_builtin_label(bip)
+    else:
+        # Shared Parameter or (?) Builtin parameter
+        shared_param = doc.GetElement(id)
+        param_dict[shared_param.GuidValue] = shared_param.Name + SHARED_PARAMETER_LABEL
+
+forms.alert_ifnot(param_dict, "No parameters or elements found for selected categories", exitscript=True)
 # show UI form to pick parameters
-ops = {"Type Parameters":type_p_names_lst, "Instance Parameters":ins_p_names_lst}
-selected_parameter = forms.SelectFromList.show(ops,
-                                                button_name="Select Parameters",
-                                                multiselect = False)
+p_class = [ParameterOption(x, param_dict) for x in param_dict.keys()]
+p_ops = sorted(p_class, key=lambda x: x.name)
+
+selected_parameter = forms.SelectFromList.show(p_ops,
+                                               button_name="Select Parameters",
+                                               multiselect=False)
 
 forms.alert_ifnot(selected_parameter, "No Parameters Selected", exitscript=True)
-# todo: store the storage type here (but how?)
 
+values = []
 
-first_el = get_view_elements[0]
+# get the storage type of the selected parameter - used when constructing filters
+selected_param_storage_type = get_multicat_param_storage_type(chosen_bics, selected_parameter)
 
-selected_p_storage_type = database.p_storage_type(database.get_parameter_from_name(get_view_elements[0], selected_parameter))
-# print (selected_p_storage_type)
-# sys.exit()
-
-
-# {value of parameter : element id}
-# need a nested dictionary
-values_dict = defaultdict(list)
-
+# iterate through elements in view and gather all unique values of selected parameter
+# accounts for cases where:
+# * shared parameters can be both type and instance
+# BIP can exist for both type and instance
+# parameters can exist for both main and nested elements
 for el in get_view_elements:
-    if selected_parameter in ins_p_names_lst:
-        param_value = database.get_param_value_as_string(el.LookupParameter(selected_parameter))
-        # values_dict[param_value] = []
-        values_dict[param_value].append(el.Id)
-# TODO: add for type as well
-# for i in values_dict.keys():
-#     print (len(values_dict[i]))
-
-# for el in get_view_elements:
-#
-#     # discard nested shared - group under the parent family
-#     if selected_cat in ["Floors", "Walls", "Roofs"]:
-#         types_in_view[database.get_name(el)] = el.GetTypeId()
-#     else:
-#         if el.SuperComponent:
-#             types_in_view[database.family_and_type_names(el.SuperComponent)] = el.SuperComponent.GetTypeId()
-#         else:
-#             types_in_view[database.family_and_type_names(el)] = el.GetTypeId()
-#
-#
-# # iterate through unique types
-# for type_name in return_types:
-#     # note: names will be used as keys
-#     type_id = types_in_view[type_name]
-#     # type_name = database.get_name(doc.GetElement(type_id))
-#
-#     if type_name not in types_dict.values():
-#         types_dict[type_id] = type_name
-#     # this bit is no longer necessary
-#     else:
-#         while type_name in types_dict.values():
-#             type_name = type_name + "(2)"
-#         types_dict[type_id] = type_name
+    el_param = el.get_Parameter(selected_parameter)
+    # if the element is an instance parameter and not a symbol parameter, query its value
+    if el_param \
+        and database.get_param_value_by_storage_type(el_param) is not None \
+        and selected_parameter not in banned_symbol_parameters:
+        add_param_value(el_param, selected_param_storage_type, values)
+    # if not - look for the parameter of the type of the element
+    elif selected_parameter != BIP.ELEM_PARTITION_PARAM:  # excluded workset parameter to ignore non user-created worksets
+        el_type = query.get_type(el)  # get type of the element
+        el_type_param = el_type.get_Parameter(selected_parameter)
+        if el_type_param:
+            add_param_value(el_type_param, selected_param_storage_type, values)  # add value
 
 # colour dictionary
-n = len(values_dict.keys())
-
-if n < 14:
-    colours = colorize.basic_colours()
-else:
-    colours = colorize.rainbow()
-col_dict = colorize.polylinear_gradient(colours, n)
-chop_col_list = col_dict["hex"][0:n]
-# gradient method
-revit_colours = [colorize.revit_colour(h) for h in chop_col_list]
-# random method
-# revit_colours = colorize.random_colour_hsv(len(types_dict))
-
-for x in range(10):
-    random.shuffle(revit_colours)
-
+n = len(values)
+forms.alert_ifnot(n > 0, "There are no values found for the selected parameter.", exitscript=True)
+revit_colours = colorize.get_colours(n)
+# keep record of the decision to override filters or not
 override_filters = 0
-type_name_param = DB.BuiltInParameter.ALL_MODEL_TYPE_NAME
-# dictionary of parameters{param value as string : [ids]}
-with revit.Transaction("Colorize by Value"):
-    for param_value, c in zip(values_dict.keys(), revit_colours):
-        for el_id in values_dict[param_value]:
 
+# parameter id for filters
+if isinstance(selected_parameter, DB.BuiltInParameter):
+    parameter_id = DB.ElementId(selected_parameter)
 
-            # t_name_unique = types_dict[type_id]
-            # el_type = doc.GetElement(type_id)
-            # type_param = el_type.get_Parameter(type_name_param)
-            # type_name = type_param.AsValueString()
-            # if not type_name:
-            #     type_name = type_param.AsString()
-            # also record family name for filters
-            # fam_param = el_type.get_Parameter(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
-            # fam_name = fam_param.AsValueString()
-            # if not fam_name:
-            #     fam_name = fam_param.AsString()
+else:
+    parameter_id = database.shared_param_id_from_guid(chosen_bics, selected_parameter, doc)
+    forms.alert_ifnot(parameter_id, "no id found for parameter {}".format(selected_parameter), exitscript=True)
 
-            # create a filter for each param value
-            filter_name = selected_cat + " - " + str(param_value)
-            filter_id = None
-            # check if the filter with the given name already exists
-            filter_exists = database.check_filter_exists(filter_name)
-            # print ("Filter_name: {} filter exists:{}".format(filter_name, database.get_name(filter_exists)))
-            # print(database.get_name(filter_exists))
-            # choose to override or not
-            if filter_exists and override_filters == 0:
+with revit.Transaction("Filters by Value", doc):
+    for param_value, c in zip(values, revit_colours):
+        override = DB.OverrideGraphicSettings()
+        if "Projection Line Colour" in overrides_option:
+            override.SetProjectionLineColor(c)
+        if "Cut Line Colour" in overrides_option:
+            override.SetCutLineColor(c)
+        if "Projection Surface Colour" in overrides_option:
+            override.SetSurfaceForegroundPatternColor(c)
+            override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc).Id)
+        if "Cut Pattern Colour" in overrides_option:
+            override.SetCutForegroundPatternColor(c)
+            override.SetCutForegroundPatternId(database.get_solid_fill_pat(doc).Id)
 
-                use_existent = forms.alert(
-                    "Filter with the required name already exists. Do you want to use existing filters?", yes=True, no=True)
-                if use_existent:
-                    override_filters = 1
-                else:
-                    override_filters = -1
-
-            if override_filters == -1:
-                filter_id = filter_exists.Id
+        # create a filter for each param value
+        if selected_param_storage_type == "ElementId":
+            value_name = database.get_name(doc.GetElement(param_value))
+        elif selected_param_storage_type == "Double":
+            value_name = list(param_value)[0]
+            param_value = param_value[value_name]
+        else:
+            value_name = str(param_value)
+        filter_name = param_dict[selected_parameter].replace(SHARED_PARAMETER_LABEL, "") + " - " + value_name
+        # replace forbidden characters:
+        filter_name = filter_name.strip("{}[]:\|?/<>*")
+        filter_id = None
+        # check if the filter with the given name already exists
+        filter_exists = database.check_filter_exists(filter_name, doc)
+        # choose to override or not. Remember the choice and not ask again within the same run
+        if filter_exists and override_filters == 0:
+            use_existent = forms.alert(
+                "Filter with the required name already exists. Do you want to use existing filters?", yes=True,
+                no=True)
+            if use_existent:
+                override_filters = 1
             else:
-                if filter_exists:
-                    # delete filters
-                    doc.Delete(filter_exists.Id)
-                # todo: here a check needs to happen for parameter storage type
-                p = database.get_parameter_from_name(el, selected_parameter)
-                # if selected_p_storage_type == "ElementId":
-                #     equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(p.Id, DB.ElementId(param_value))
-                # elif selected_p_storage_type == "Integer":
-                #     equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(p.Id, int(param_value))
-                # elif selected_p_storage_type == "Double":
-                #     equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(p.Id, float(param_value), 0)
-                # elif selected_p_storage_type == "String":
-                #     #todo: choose if case sensitive!
-                #     equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(p.Id, param_value, True)
-                equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(p.Id, param_value, True)
-                # type_equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(type_param.Id, param_value, False)
-                # fam_equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(fam_param.Id, fam_name, False)
-                f_rules = List[DB.FilterRule]([equals_rule])
-                parameter_filter = database.filter_from_rules(f_rules)
-                new_filter = database.create_filter(filter_name, [chosen_bic])
-                new_filter.SetElementFilter(parameter_filter)
-                filter_id = new_filter.Id
+                override_filters = -1
+        if override_filters == 1 and filter_exists:
 
-            # define overrrides
-            override = DB.OverrideGraphicSettings()
-            if "Projection Line Colour" in overrides_option:
-                override.SetProjectionLineColor(c)
-            if "Cut Line Colour" in overrides_option:
-                override.SetCutLineColor(c)
-            if "Projection Surface Colour" in overrides_option:
-                override.SetSurfaceForegroundPatternColor(c)
-                override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
-            if "Cut Pattern Colour" in overrides_option:
-                override.SetCutForegroundPatternColor(c)
-                override.SetCutForegroundPatternId(database.get_solid_fill_pat().Id)
+            filter_id = filter_exists.Id
+        else:
+            if filter_exists:
+                # delete filters
+                doc.Delete(filter_exists.Id)
+            if selected_param_storage_type == "ElementId":
+                equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value)
+            elif selected_param_storage_type == "Integer":
+                equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, int(param_value))
+            elif selected_param_storage_type == "Double":
+                equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value, EPSILON)
+            elif selected_param_storage_type == "String":
+                try:
+                    equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value)
+                except TypeError:  # different method in versions earlier than R2023
+                    equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value, True)
+            f_rules = List[DB.FilterRule]([equals_rule])
+            parameter_filter = database.filter_from_rules(f_rules)
+            new_filter = database.create_filter_by_name_bics(filter_name, chosen_bics, doc)
+            new_filter.SetElementFilter(parameter_filter)
+            filter_id = new_filter.Id
             # add filter to view
-            #todo! remove if filter already applied
             view.AddFilter(filter_id)
-            view.SetFilterOverrides(filter_id, override)
+        view.SetFilterOverrides(filter_id, override)
