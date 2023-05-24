@@ -15,51 +15,15 @@ doc = revit.doc
 overrides_option = threedconfig.get_config()
 solid_fill_pattern = database.get_solid_fill_pat(doc=doc)
 
-# colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
+categories_for_selection = database.common_cat_dict()
+sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
-# [x] revise colours to exclude nearby colours
-# [x] include more categories
-# [x] set view to open active
-# [-] include which types to colorize - unclear if useful
-# [x] test in R2022 R2023
-# [-] work with links? - cannot override
-# [x] fix dependency on the initial 3D view
-
-
-category_opt_dict = {
-    "Windows": BIC.OST_Windows,
-    "Doors": BIC.OST_Doors,
-    "Floors": BIC.OST_Floors,
-    "Walls": BIC.OST_Walls,
-    "Generic Model": BIC.OST_GenericModel,
-    "Casework": BIC.OST_Casework,
-    "Furniture": BIC.OST_Furniture,
-    "Furniture Systems": BIC.OST_FurnitureSystems,
-    "Electrical Equipment":BIC.OST_ElectricalEquipment,
-    "Electrical Fixtures":BIC.OST_ElectricalFixtures,
-    "Parking":BIC.OST_Parking,
-    "Site":BIC.OST_Site,
-    "Entourage":BIC.OST_Entourage,
-    "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
-    "Roofs": BIC.OST_Roofs,
-    "Specialty Equipment": BIC.OST_SpecialityEquipment,
-    "Ceilings": BIC.OST_Ceilings,
-    "Curtain Wall Panels": BIC.OST_CurtainWallPanels,
-    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
-    "Topography":BIC.OST_Topography,
-    "Structural Columns":BIC.OST_StructuralColumns,
-    "Structural Framing":BIC.OST_StructuralFraming,
-    "Stairs":BIC.OST_Stairs,
-    "Ramps":BIC.OST_Ramps,
-
-}
-sorted_cats = sorted(category_opt_dict.keys(), key=lambda x:x)
 
 selected_cat = forms.CommandSwitchWindow.show(sorted_cats, message="Select Category to Colorize", width = 400)
 if selected_cat == None:
     script.exit()
 
-chosen_bic = [category_opt_dict[selected_cat]]
+chosen_bic = [categories_for_selection[selected_cat]]
 if selected_cat in ["Curtain Wall Panels", "Curtain Wall Mullions"]: # not so elegant way to support curtain panels by adding walls category
     chosen_bic.append(BIC.OST_Walls)
 
@@ -113,32 +77,12 @@ for el in get_view_elements:
 
 # colour dictionary
 n = len(types_dict)
-
-if n < 14:
-    colours = colorize.basic_colours()
-else:
-    colours = colorize.rainbow()
-col_dict = colorize.polylinear_gradient(colours, n)
-chop_col_list = col_dict["hex"][0:n]
-
-revit_colours = [colorize.revit_colour(h) for h in chop_col_list]
-for x in range(10):
-    random.shuffle(revit_colours)
+revit_colours = colorize.get_colours(n)
 
 with revit.Transaction("Isolate and Colorize Types"):
-    for type_id, c in zip(types_dict.keys(), revit_colours):
+    for type_id, colour in zip(types_dict.keys(), revit_colours):
         type_instance = types_dict[type_id]
-        override = DB.OverrideGraphicSettings()
-        if "Projection Line Colour" in overrides_option:
-            override.SetProjectionLineColor(c)
-        if "Cut Line Colour" in overrides_option:
-            override.SetCutLineColor(c)
-        if "Projection Surface Colour" in overrides_option:
-            override.SetSurfaceForegroundPatternColor(c)
-            override.SetSurfaceForegroundPatternId(solid_fill_pattern.Id)
-        if "Cut Pattern Colour" in overrides_option:
-            override.SetCutForegroundPatternColor(c)
-            override.SetCutForegroundPatternId(solid_fill_pattern.Id)
+        override = colorize.set_colour_overrides_by_option(overrides_option, colour, doc)
         for inst in type_instance:
             view.SetElementOverrides(inst, override)
 revit.active_view = view
