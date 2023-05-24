@@ -2,12 +2,10 @@ import sys
 
 from pyrevit import revit, DB, forms
 from pyrevit import script
-import random
 from pychilizer import database
 from pychilizer import colorize
 from pyrevit.framework import List
 import filterbyvalueconfig
-from collections import defaultdict
 from pyrevit.revit.db import query
 from pyrevit.forms import reactive, WPF_VISIBLE, WPF_COLLAPSED
 from Autodesk.Revit import Exceptions
@@ -19,12 +17,6 @@ doc = revit.doc
 view = revit.active_view
 
 overrides_option = filterbyvalueconfig.get_config()
-
-# [x] test in R2022
-# [x] test in R2023
-# [x] use labels instead of hard-coded names for BIC
-# [x] fix case Workset1 undetected
-# [x] fix case Function Interior undetected
 
 # OTHER NOTES
 EPSILON = 0.001  # for parameters with storage type Double
@@ -83,14 +75,15 @@ def add_param_value(param, param_storage_type, values):
         # special approach for values stored as a Double :
         # {pretty AsValueString name for the filter name : actual value as a double}
         display_value = param.AsValueString()
-        values_set = {display_value: el_parameter_value}
-        if len(values) > 0 and display_value not in [x.keys() for x in values]:
+        values_set = display_value, el_parameter_value
+        if len(values) > 0 and display_value not in [x[0] for x in values]:
             values.append(values_set)
-        else:
+        elif len(values) == 0:
             return values.append(values_set)
     elif el_parameter_value is not None \
             and el_parameter_value not in values \
-            and el_parameter_value != DB.ElementId.InvalidElementId:
+            and el_parameter_value != DB.ElementId.InvalidElementId \
+            and param_storage_type != "Double":
         return values.append(el_parameter_value)
     return
 
@@ -99,43 +92,19 @@ def add_param_value(param, param_storage_type, values):
 banned_symbol_parameters = [DB.BuiltInParameter.SYMBOL_NAME_PARAM,
                             DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM]
 
-categories_selection_list = [BIC.OST_Windows,
-                             BIC.OST_Doors,
-                             BIC.OST_Floors,
-                             BIC.OST_Walls,
-                             BIC.OST_GenericModel,
-                             BIC.OST_Casework,
-                             BIC.OST_Furniture,
-                             BIC.OST_FurnitureSystems,
-                             BIC.OST_PlumbingFixtures,
-                             BIC.OST_Roofs,
-                             BIC.OST_ElectricalEquipment,
-                             BIC.OST_ElectricalFixtures,
-                             BIC.OST_Parking,
-                             BIC.OST_Site,
-                             BIC.OST_Entourage,
-                             BIC.OST_Ceilings,
-                             BIC.OST_CurtainWallPanels,
-                             BIC.OST_CurtainWallMullions,
-                             BIC.OST_Topography,
-                             BIC.OST_StructuralColumns,
-                             BIC.OST_StructuralFraming,
-                             BIC.OST_Stairs,
-                             BIC.OST_Ramps]
-category_opt_dict = {}
-for cat in categories_selection_list:
-    category_opt_dict[database.get_builtin_label(cat)] = cat
+categories_for_selection = database.common_cat_dict()
+sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 # ask the user for category/categories from the list
 if forms.check_modelview(revit.active_view):
-    selected_cat = forms.SelectFromList.show(sorted(category_opt_dict),
+    selected_cat = forms.SelectFromList.show(sorted_cats,
                                              message="Select Category to Colorize",
                                              multiselect=True,
                                              width=400)
 if selected_cat == None:
     script.exit()
 # format the category dictionary
-chosen_bics = [category_opt_dict[c] for c in selected_cat]
+chosen_bics = [categories_for_selection[c] for c in selected_cat]
 # get all element categories and return a list of all categories except chosen BIC
 all_cats = doc.Settings.Categories
 chosen_category_ids = [all_cats.get_Item(bic).Id for bic in chosen_bics]
@@ -207,7 +176,6 @@ forms.alert_ifnot(n > 0, "There are no values found for the selected parameter."
 revit_colours = colorize.get_colours(n)
 # keep record of the decision to override filters or not
 override_filters = 0
-
 # parameter id for filters
 if isinstance(selected_parameter, DB.BuiltInParameter):
     parameter_id = DB.ElementId(selected_parameter)
@@ -217,25 +185,14 @@ else:
     forms.alert_ifnot(parameter_id, "no id found for parameter {}".format(selected_parameter), exitscript=True)
 
 with revit.Transaction("Filters by Value", doc):
-    for param_value, c in zip(values, revit_colours):
-        override = DB.OverrideGraphicSettings()
-        if "Projection Line Colour" in overrides_option:
-            override.SetProjectionLineColor(c)
-        if "Cut Line Colour" in overrides_option:
-            override.SetCutLineColor(c)
-        if "Projection Surface Colour" in overrides_option:
-            override.SetSurfaceForegroundPatternColor(c)
-            override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat(doc).Id)
-        if "Cut Pattern Colour" in overrides_option:
-            override.SetCutForegroundPatternColor(c)
-            override.SetCutForegroundPatternId(database.get_solid_fill_pat(doc).Id)
-
+    for param_value, colour in zip(values, revit_colours):
+        override = colorize.set_colour_overrides_by_option(overrides_option, colour, doc)
         # create a filter for each param value
         if selected_param_storage_type == "ElementId":
             value_name = database.get_name(doc.GetElement(param_value))
         elif selected_param_storage_type == "Double":
-            value_name = list(param_value)[0]
-            param_value = param_value[value_name]
+            value_name = param_value[0]
+            param_value = param_value[1]
         else:
             value_name = str(param_value)
         filter_name = param_dict[selected_parameter].replace(SHARED_PARAMETER_LABEL, "") + " - " + value_name

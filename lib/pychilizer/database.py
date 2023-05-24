@@ -6,6 +6,11 @@ from collections import defaultdict
 from pychilizer import units
 from pyrevit.revit.db import query
 from Autodesk.Revit import Exceptions
+
+
+
+BIC = DB.BuiltInCategory
+
 def get_alphabetic_labels(nr):
     # get N letters A, B, C, etc or AA, AB, AC if N more than 26
     alphabet = [chr(i) for i in range(65, 91)]
@@ -626,3 +631,37 @@ def shared_param_id_from_guid(categories_list, guid, doc=revit.doc):
                 except Exceptions.InvalidOperationException:
                     pass
     return None
+
+
+common_categories = [BIC.OST_Windows,
+                                 BIC.OST_Doors,
+                                 BIC.OST_Floors,
+                                 BIC.OST_Walls,
+                                 BIC.OST_GenericModel,
+                                 BIC.OST_Casework,
+                                 BIC.OST_Furniture,
+                                 BIC.OST_FurnitureSystems,
+                                 BIC.OST_PlumbingFixtures,
+                                 BIC.OST_Roofs,
+                                 BIC.OST_ElectricalEquipment,
+                                 BIC.OST_ElectricalFixtures,
+                                 BIC.OST_Parking,
+                                 BIC.OST_Site,
+                                 BIC.OST_Entourage,
+                                 BIC.OST_Ceilings,
+                                 BIC.OST_CurtainWallPanels,
+                                 BIC.OST_CurtainWallMullions,
+                                 BIC.OST_Topography,
+                                 BIC.OST_StructuralColumns,
+                                 BIC.OST_StructuralFraming,
+                                 BIC.OST_Stairs,
+                                 BIC.OST_Ramps]
+
+def common_cat_dict():
+    # a dictionary of common categories used for colorizers
+    # formatted as {Category name : BIC}
+    category_opt_dict = {}
+    for cat in common_categories:
+        category_opt_dict[get_builtin_label(cat)] = cat
+
+    return category_opt_dict

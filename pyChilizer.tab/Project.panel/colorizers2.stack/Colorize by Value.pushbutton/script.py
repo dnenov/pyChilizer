@@ -17,15 +17,6 @@ view = revit.active_view
 
 overrides_option = colorizebyvalueconfig.get_config()
 
-
-# colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
-
-# [ ] test in R2022
-# [x] test in R2023
-# [ ] find and exclude irrelevant builtin params
-# [-] PROJECT PARAMETERS NOT SUPPORTED DUE TO HIGH NR OF REPETITIONS
-
-
 class ParameterOption(forms.TemplateListItem):
     """Wrapper for selecting parameters from a list"""
 
@@ -38,41 +29,16 @@ class ParameterOption(forms.TemplateListItem):
         return str(self.param_dict[self.item])
 
 
-categories_selection_list = [BIC.OST_Windows,
-                             BIC.OST_Doors,
-                             BIC.OST_Floors,
-                             BIC.OST_Walls,
-                             BIC.OST_GenericModel,
-                             BIC.OST_Casework,
-                             BIC.OST_Furniture,
-                             BIC.OST_FurnitureSystems,
-                             BIC.OST_PlumbingFixtures,
-                             BIC.OST_Roofs,
-                             BIC.OST_ElectricalEquipment,
-                             BIC.OST_ElectricalFixtures,
-                             BIC.OST_Parking,
-                             BIC.OST_Site,
-                             BIC.OST_Entourage,
-                             BIC.OST_Ceilings,
-                             BIC.OST_CurtainWallPanels,
-                             BIC.OST_CurtainWallMullions,
-                             BIC.OST_Topography,
-                             BIC.OST_StructuralColumns,
-                             BIC.OST_StructuralFraming,
-                             BIC.OST_Stairs,
-                             BIC.OST_Ramps]
-category_opt_dict = {}
-for cat in categories_selection_list:
-    category_opt_dict[database.get_builtin_label(cat)] = cat
-
+categories_for_selection = database.common_cat_dict()
+sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 if forms.check_modelview(revit.active_view):
-    selected_cat = forms.CommandSwitchWindow.show(sorted(category_opt_dict), message="Select Category to Colorize",
+    selected_cat = forms.CommandSwitchWindow.show(sorted_cats, message="Select Category to Colorize",
                                                   width=400)
 if selected_cat == None:
     script.exit()
 # format the category dictionary
-chosen_bic = category_opt_dict[selected_cat]
+chosen_bic = categories_for_selection[selected_cat]
 
 # get all element categories and return a list of all categories except chosen BIC
 all_cats = doc.Settings.Categories
@@ -163,17 +129,7 @@ revit_colours = colorize.get_colours(n)
 override_filters = 0
 
 with revit.Transaction("Colorize by Value", doc):
-    for param_value, c in zip(values_dict.keys(), revit_colours):
-        override = DB.OverrideGraphicSettings()
-        if "Projection Line Colour" in overrides_option:
-            override.SetProjectionLineColor(c)
-        if "Cut Line Colour" in overrides_option:
-            override.SetCutLineColor(c)
-        if "Projection Surface Colour" in overrides_option:
-            override.SetSurfaceForegroundPatternColor(c)
-            override.SetSurfaceForegroundPatternId(database.get_solid_fill_pat().Id)
-        if "Cut Pattern Colour" in overrides_option:
-            override.SetCutForegroundPatternColor(c)
-            override.SetCutForegroundPatternId(database.get_solid_fill_pat().Id)
+    for param_value, colour in zip(values_dict.keys(), revit_colours):
+        override = colorize.set_colour_overrides_by_option(overrides_option, colour, doc)
         for el_id in values_dict[param_value]:
             view.SetElementOverrides(el_id, override)
