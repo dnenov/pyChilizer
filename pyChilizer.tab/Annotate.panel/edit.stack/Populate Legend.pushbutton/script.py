@@ -65,12 +65,12 @@ elif chosen_bic in [BIC.OST_Roofs, BIC.OST_Ceilings, BIC.OST_Floors]:
 elif chosen_bic in [BIC.OST_Windows, BIC.OST_Doors]:
     view_directions = {"Back": -6, "Front": -7, "Floor Plan": -8}
 elif chosen_bic in [BIC.OST_GenericModel,
-                     BIC.OST_Casework,
+                    BIC.OST_Casework,
                     BIC.OST_ElectricalEquipment,
-                     BIC.OST_ElectricalFixtures,
+                    BIC.OST_ElectricalFixtures,
                     BIC.OST_Furniture,
-                     BIC.OST_FurnitureSystems,
-                     BIC.OST_PlumbingFixtures,
+                    BIC.OST_FurnitureSystems,
+                    BIC.OST_PlumbingFixtures,
                     BIC.OST_Entourage,
                     ]:
     view_directions = {"Back": -6, "Front": -7, "Floor Plan": -8, "Right": -9, "Left": -10}
@@ -78,7 +78,12 @@ else:
     view_directions = {"Section": -5, "Back": -6, "Front": -7, "Floor Plan": -8, "Right": -9, "Left": -10}
 view_dir = forms.SelectFromList.show(view_directions.keys(),
                                      button_name="Select view direction",
+                                     title="View Direction",
+                                     height=300,
+                                     width=350,
                                      multiselect=False)
+if not view_dir:
+    sys.exit()
 chosen_view_direction = view_directions[view_dir]
 
 source_legend_component = DB.FilteredElementCollector(doc, legend.Id).OfCategory(
