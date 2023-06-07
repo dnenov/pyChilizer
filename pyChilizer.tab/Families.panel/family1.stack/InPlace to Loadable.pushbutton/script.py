@@ -1,7 +1,7 @@
 __title__ = "InPlace to\nLoadable"
 __doc__ = "Select an In-Place element to convert into a Loadable family and place in the same location. " \
           "Subcategories will be respected" \
-          "Will assign a"
+
 
 from pyrevit import revit, DB, UI, HOST_APP, forms, script
 import tempfile

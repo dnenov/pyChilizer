@@ -333,7 +333,7 @@ def get_generic_family_template_name():
     KOR = "\미터법 일반 모델.rft"
 
     template_language = get_family_template_language()
-    if ("English_I") in template_language or ("English-I"):
+    if ("English_I") in template_language or ("English-I") in template_language:
         return ENG_I
     elif ("English") in template_language:
         return ENG

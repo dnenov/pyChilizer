@@ -4,6 +4,7 @@ from pyrevit.framework import List
 from pychilizer import database
 from Autodesk.Revit import Exceptions
 
+output = script.get_output()
 
 def inverted_transform(element, view=revit.active_view):
     # get element location and return its inverted transform
@@ -147,10 +148,10 @@ def get_room_bound(r):
     if open_ends:
         return None
     for curve in curve_loop:
-        # try:
-        room_boundaries.Append(curve)
-        # except Exceptions.ArgumentException:
-            # print (curve)
+        try:
+            room_boundaries.Append(curve)
+        except Exceptions.ArgumentException:
+            print("Boundary curve makes the loop not contiguous in room {}.".format(output.linkify(r.Id)))
     return room_boundaries
 
 
