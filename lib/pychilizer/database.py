@@ -6,6 +6,8 @@ from collections import defaultdict
 from pychilizer import units
 from pyrevit.revit.db import query
 from Autodesk.Revit import Exceptions
+import clr
+import System
 
 
 
@@ -636,8 +638,13 @@ def get_document_model_bics(doc=revit.doc):
     # get all model builtin categories of the doc
     built_in_categories = []
     for category in doc.Settings.Categories:
-        if category.CategoryType==DB.CategoryType.Model and category.BuiltInCategory!= DB.BuiltInCategory.INVALID:
-            built_in_categories.append(category.BuiltInCategory)
+        if HOST_APP.is_newer_than(2022):
+            bic = category.BuiltInCategory
+        else:
+            bic = System.Enum.ToObject(BIC, category.Id.IntegerValue)
+            # print (type(bic), bic)
+        if category.CategoryType==DB.CategoryType.Model and bic!= DB.BuiltInCategory.INVALID and category.Id.IntegerValue <0:
+            built_in_categories.append(bic)
     return built_in_categories
 
 
