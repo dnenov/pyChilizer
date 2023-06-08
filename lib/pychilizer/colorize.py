@@ -8,15 +8,11 @@ from pychilizer import database
 import colorsys
 
 
-# colour presets
-# short colours list (14 colours)
-
-# swatches for gradient
-
 # colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
 
 
 def basic_colours():
+    # colour presets - short colours list (14 colours)
     basic_colours = [
         "#40DFFF",
         "#803ABA",
@@ -47,7 +43,7 @@ def rainbow():
     blue = "#6DDEF0"
     violet = "#550580"
     cyan = "#40DFFF"
-    rainbow_colours = [dark, red, yellow, green, cyan, violet, pink]
+    rainbow_colours = [dark, red, orange, yellow, green, blue, cyan, violet, pink]
     return rainbow_colours
 
 
@@ -145,47 +141,81 @@ def get_colours(n):
 
 
 override_options = ["Projection Line Colour", "Projection Surface Colour", "Cut Line Colour", "Cut Pattern Colour"]
-default_options = ["Projection Surface Colour", "Cut Pattern Colour"]
+default_override_options = ["Projection Surface Colour", "Cut Pattern Colour"]
+OVERRIDES_CONFIG_OPTION_NAME = "overrides"
+CATEGORIES_CONFIG_OPTION_NAME = "colorize_categories"
 
 class ChosenItem(forms.TemplateListItem):
     """Wrapper class for chosen item"""
-    pass
+    @property
+    def name(self):
+        return str(self.item)
 
-def get_config(custom_config):
-    prev_choice = custom_config.get_option("overrides", [])
+
+def get_config(config_set, option_name, default_options):
+    # get the config values
+    prev_choice = config_set.get_option(option_name, [])
     if not prev_choice:
-        save_config([x for x in default_options], custom_config)
-        prev_choice = custom_config.get_option("overrides", [])
+        save_config([x for x in default_options], option_name,config_set)
+        prev_choice = config_set.get_option(option_name, [])
     return prev_choice
 
-def save_config(chosen, config):
-    """Save given list of overrides"""
-    config.overrides = chosen
-    script.save_config()
+# categories_config = script.get_config(colorize.CATEGORIES_CONFIG_OPTION_NAME) #get colorize_categories config - to store fav categories
 
-def load_configs(config):
+def get_categories_config(doc):
+    # get the category language-specific labels from config and return a dictionary {Label:BIC}
+    categories_config = script.get_config(CATEGORIES_CONFIG_OPTION_NAME)  # get colorize_categories config
+    default_categories_names = database.frequent_category_labels()
+    categories_names_list= get_config(categories_config, CATEGORIES_CONFIG_OPTION_NAME, default_categories_names)
+    return database.category_labels_to_bic(categories_names_list, doc)
+
+
+
+def save_config(chosen, option_name, config):
+    """Save given list of overrides"""
+    config.set_option(option_name, chosen)
+    # script.save_config()
+
+
+def load_configs(config, option_name,default_option):
     """Load list of frequently selected items from configs or defaults"""
-    ovrds = config.get_option("overrides", [])
-    ovrd_items = [x for x in (ovrds or default_options)]
+    ovrds = config.get_option(option_name, [])
+    ovrd_items = [x for x in (ovrds or default_option)]
     if not ovrds:
-        ovrd_items = [x for x in default_options]
+        ovrd_items = [x for x in default_option]
     return filter(None, ovrd_items)
 
-
-def config_overrides(config):
+def config_overrides(config, option_name):
     """Ask for users choice of overrides"""
-    prev_ovrds = load_configs(config)
+    prev_ovrds = load_configs(config, option_name, default_override_options)
     opts = [ChosenItem(x, checked=x in prev_ovrds) for x in override_options]
     overrides = forms.SelectFromList.show(
-        opts,
+        sorted(opts),
         title="Choose Overrides Styles",
         button_name="Remember",
         multiselect=True
     )
     if overrides:
-        save_config([x for x in overrides if x], config)
+        save_config([x for x in overrides if x], option_name,config)
 
-def set_colour_overrides_by_option (overrides_option, colour, doc):
+
+def config_category_overrides(doc):
+    """Ask for favourite categories"""
+    # categories_config = get_categories_config(doc)
+    categories_config = script.get_config(CATEGORIES_CONFIG_OPTION_NAME)
+    prev_cat_overrides = load_configs(categories_config, CATEGORIES_CONFIG_OPTION_NAME, database.frequent_category_labels())
+    category_options = [ChosenItem(x, checked=x in prev_cat_overrides) for x in database.model_categories_dict(doc)]
+    category_selection = forms.SelectFromList.show(
+        sorted(category_options, key=lambda x:x.name),
+        title="Frequent Categories List",
+        button_name="Choose Categories",
+        multiselect=True
+    )
+    if category_selection:
+        save_config([x for x in category_selection if x],CATEGORIES_CONFIG_OPTION_NAME, categories_config)
+
+
+def set_colour_overrides_by_option(overrides_option, colour, doc):
     override = DB.OverrideGraphicSettings()
     solid_fill_pat_id = database.get_solid_fill_pat(doc).Id
     if "Projection Line Colour" in overrides_option:

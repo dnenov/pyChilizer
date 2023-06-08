@@ -632,36 +632,41 @@ def shared_param_id_from_guid(categories_list, guid, doc=revit.doc):
                     pass
     return None
 
+def get_document_model_bics(doc=revit.doc):
+    # get all model builtin categories of the doc
+    built_in_categories = []
+    for category in doc.Settings.Categories:
+        if category.CategoryType==DB.CategoryType.Model and category.BuiltInCategory!= DB.BuiltInCategory.INVALID:
+            built_in_categories.append(category.BuiltInCategory)
+    return built_in_categories
 
-common_categories = [BIC.OST_Windows,
-                                 BIC.OST_Doors,
-                                 BIC.OST_Floors,
-                                 BIC.OST_Walls,
-                                 BIC.OST_GenericModel,
-                                 BIC.OST_Casework,
-                                 BIC.OST_Furniture,
-                                 BIC.OST_FurnitureSystems,
-                                 BIC.OST_PlumbingFixtures,
-                                 BIC.OST_Roofs,
-                                 BIC.OST_ElectricalEquipment,
-                                 BIC.OST_ElectricalFixtures,
-                                 BIC.OST_Parking,
-                                 BIC.OST_Site,
-                                 BIC.OST_Entourage,
-                                 BIC.OST_Ceilings,
-                                 BIC.OST_CurtainWallPanels,
-                                 BIC.OST_CurtainWallMullions,
-                                 BIC.OST_Topography,
-                                 BIC.OST_StructuralColumns,
-                                 BIC.OST_StructuralFraming,
-                                 BIC.OST_Stairs,
-                                 BIC.OST_Ramps]
 
-def common_cat_dict():
+FREQUENTLY_SELECTED_CATEGORIES=[
+        BIC.OST_Casework,
+        BIC.OST_Ceilings,
+        BIC.OST_Columns,
+        BIC.OST_Floors,
+        BIC.OST_GenericModel,
+        BIC.OST_PlumbingFixtures,
+        BIC.OST_Walls,
+        BIC.OST_Windows,
+        ]
+
+def frequent_category_labels():
+    return [get_builtin_label(bic) for bic in FREQUENTLY_SELECTED_CATEGORIES]
+
+
+def model_categories_dict(doc):
     # a dictionary of common categories used for colorizers
     # formatted as {Category name : BIC}
     category_opt_dict = {}
-    for cat in common_categories:
+    for cat in get_document_model_bics(doc):
         category_opt_dict[get_builtin_label(cat)] = cat
-
     return category_opt_dict
+
+
+def category_labels_to_bic(labels, doc):
+    categories_dict = {}
+    for label in labels:
+        categories_dict[label]=model_categories_dict(doc)[label]
+    return categories_dict

@@ -2,10 +2,8 @@ import sys
 
 from pyrevit import revit, DB, forms
 from pyrevit import script
-import random
 from pychilizer import database
 from pychilizer import colorize
-from pyrevit.framework import List
 import colorizebyvalueconfig
 from collections import defaultdict
 from pyrevit.revit.db import query
@@ -15,7 +13,9 @@ BIC = DB.BuiltInCategory
 doc = revit.doc
 view = revit.active_view
 
-overrides_option = colorizebyvalueconfig.get_config()
+overrides_option = colorizebyvalueconfig.get_overrides_config()
+categories_for_selection = colorize.get_categories_config(doc)
+
 
 class ParameterOption(forms.TemplateListItem):
     """Wrapper for selecting parameters from a list"""
@@ -29,7 +29,7 @@ class ParameterOption(forms.TemplateListItem):
         return str(self.param_dict[self.item])
 
 
-categories_for_selection = database.common_cat_dict()
+# categories_for_selection = database.common_cat_dict()
 sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 if forms.check_modelview(revit.active_view):
@@ -74,7 +74,6 @@ for e in get_view_elements:
         #     pretty_param_name = "".join([str(ip.Definition.Name), " [Project Parameter]"])
         #     inst_param_dict[ip.Definition.Id] = pretty_param_name
 
-
     type_parameter_set = doc.GetElement(e.GetTypeId()).Parameters
     for tp in type_parameter_set:
         if tp.IsShared and tp.Definition.Id not in type_param_dict:
@@ -104,9 +103,8 @@ forms.alert_ifnot(selected_parameter, "No Parameters Selected", exitscript=True)
 # get elements in current view
 first_el = get_view_elements[0]
 
-
 # need a nested dictionary
-values_dict = defaultdict(list) # {value of parameter : element id}
+values_dict = defaultdict(list)  # {value of parameter : element id}
 
 for el in get_view_elements:
     if selected_parameter in inst_param_dict.keys():
