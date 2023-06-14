@@ -191,6 +191,7 @@ def config_overrides(config, option_name):
     opts = [ChosenItem(x, checked=x in prev_ovrds) for x in override_options]
     overrides = forms.SelectFromList.show(
         sorted(opts),
+
         title="Choose Overrides Styles",
         button_name="Remember",
         multiselect=True
@@ -216,6 +217,7 @@ def config_category_overrides(doc):
 
 
 def set_colour_overrides_by_option(overrides_option, colour, doc):
+
     override = DB.OverrideGraphicSettings()
     solid_fill_pat_id = database.get_solid_fill_pat(doc).Id
     if "Projection Line Colour" in overrides_option:

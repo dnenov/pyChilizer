@@ -49,7 +49,7 @@ form = FlexForm("View Settings", components)
 form.show()
 # match the variables with user input
 chosen_vt_plan = viewplan_dict[form.values["vt_plans"]]
-chosen_crop_offset = units.correct_input_units(form.values["crop_offset"])
+chosen_crop_offset = units.correct_input_units(form.values["crop_offset"], doc)
 
 
 for room in selection:

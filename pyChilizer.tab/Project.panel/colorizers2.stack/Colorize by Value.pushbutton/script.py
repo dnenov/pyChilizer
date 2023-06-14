@@ -29,7 +29,6 @@ class ParameterOption(forms.TemplateListItem):
         return str(self.param_dict[self.item])
 
 
-# categories_for_selection = database.common_cat_dict()
 sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 if forms.check_modelview(revit.active_view):
