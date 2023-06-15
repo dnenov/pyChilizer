@@ -15,43 +15,15 @@ view = revit.active_view
 overrides_option = inviewconfig.get_config()
 solid_fill_pattern = database.get_solid_fill_pat(doc=doc)
 
-# colour gradients solution by https://bsouthga.dev/posts/color-gradients-with-python
-
-category_opt_dict = {
-    "Casework": BIC.OST_Casework,
-    "Furniture": BIC.OST_Furniture,
-    "Furniture Systems": BIC.OST_FurnitureSystems,
-    "Electrical Equipment":BIC.OST_ElectricalEquipment,
-    "Electrical Fixtures":BIC.OST_ElectricalFixtures,
-    "Parking":BIC.OST_Parking,
-    "Site":BIC.OST_Site,
-    "Entourage":BIC.OST_Entourage,
-    "Plumbing Fixtures": BIC.OST_PlumbingFixtures,
-    "Roofs": BIC.OST_Roofs,
-    "Specialty Equipment": BIC.OST_SpecialityEquipment,
-    "Ceilings": BIC.OST_Ceilings,
-    "Curtain Wall Panels": BIC.OST_CurtainWallPanels,
-    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
-    "Topography":BIC.OST_Topography,
-    "Structural Columns":BIC.OST_StructuralColumns,
-    "Structural Framing":BIC.OST_StructuralFraming,
-    "Stairs":BIC.OST_Stairs,
-    "Ramps":BIC.OST_Ramps,
-    "Walls":BIC.OST_Walls
-}
-
-sorted_cats = sorted(category_opt_dict.keys(), key=lambda x:x)
+categories_for_selection = database.common_cat_dict()
+sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 if forms.check_modelview(revit.active_view):
     selected_cat = forms.CommandSwitchWindow.show(sorted_cats, message="Select Category to Colorize", width = 400)
     if selected_cat == None:
         script.exit()
 
-
-# which category
-# windows, doors, floors, walls, furniture, plumbing, casework,
-
-chosen_bic = [category_opt_dict[selected_cat]]
+chosen_bic = [categories_for_selection[selected_cat]]
 if selected_cat in ["Curtain Wall Panels", "Curtain Wall Mullions"]: # not so elegant way to support curtain panels by adding walls category
     chosen_bic.append(BIC.OST_Walls)
 
@@ -66,7 +38,6 @@ get_view_elements = DB.FilteredElementCollector(doc) \
         .WhereElementIsNotElementType() \
         .ToElements()
 
-# print (get_view_elements)
 types_dict = defaultdict(set)
 for el in get_view_elements:
     # discard nested shared - group under the parent family
@@ -78,66 +49,13 @@ for el in get_view_elements:
         except:
             type_id = el.GetTypeId()
     types_dict[type_id].add(el.Id)
-    
-# # old method
-# colours = random_colour_hsv(len(types_dict))
 
-# colour dictionary
 n = len(types_dict)
-
-# colour presets
-basic_colours = [
-    "#40DFFF",
-    "#803ABA",
-    "#E6B637",
-    "#A8DA84"
-    "#8337E6",
-    "#EBE70E",
-    "#D037E6",
-    "#074FE0",  # blue
-    "#03A64A",
-    "#662400",
-    "#FF6B1A",
-    "#FF4858",
-    "#747F7F",
-    "#919151"
-]
-dark = "#42371E"
-red = "#F10800"
-orange = "#F27405"
-yellow = "#FFF14E"
-green = "#016B31"
-pink = "#F587FF"
-blue = "#6DDEF0"
-violet = "#550580"
-cyan = "#40DFFF"
-rainbow = [dark, red, yellow, green, cyan, violet, pink]
-
-if n < 14:
-    colours = basic_colours
-else:
-    colours = rainbow
-col_dict = colorize.polylinear_gradient(colours, n)
-chop_col_list = col_dict["hex"][0:n]
-
-revit_colours = [colorize.revit_colour(h) for h in chop_col_list]
-for x in range(10):
-    random.shuffle(revit_colours)
+revit_colours = colorize.get_colours(n)
 
 with revit.Transaction("Isolate and Colorize Types"):
-    for type_id, c in zip(types_dict.keys(), revit_colours):
+    for type_id, colour in zip(types_dict.keys(), revit_colours):
         type_instance = types_dict[type_id]
-        override = DB.OverrideGraphicSettings()
-        if "Projection Line Colour" in overrides_option:
-            override.SetProjectionLineColor(c)
-        if "Cut Line Colour" in overrides_option:
-            override.SetCutLineColor(c)
-        if "Projection Surface Colour" in overrides_option:
-            override.SetSurfaceForegroundPatternColor(c)
-            override.SetSurfaceForegroundPatternId(solid_fill_pattern.Id)
-        if "Cut Pattern Colour" in overrides_option:
-            override.SetCutForegroundPatternColor(c)
-            override.SetCutForegroundPatternId(solid_fill_pattern.Id)
+        override = colorize.set_colour_overrides_by_option(overrides_option, colour, doc)
         for inst in type_instance:
             view.SetElementOverrides(inst, override)
-# revit.active_view = view
