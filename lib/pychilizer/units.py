@@ -7,6 +7,10 @@ def convert_length_to_internal(value, doc=revit.doc):
     converted = DB.UnitUtils.ConvertToInternalUnits(value, display_units)
     return converted
 
+def convert_length_to_display(value, doc=revit.doc):
+    # convert length units from internal to display
+    display_value = DB.UnitUtils.ConvertFromInternalUnits(value, get_length_units(doc))
+    return display_value
 
 def get_length_units(doc):
     # fetch Revit's internal units depending on the Revit version

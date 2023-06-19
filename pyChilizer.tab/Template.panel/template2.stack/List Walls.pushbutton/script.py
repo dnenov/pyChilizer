@@ -5,28 +5,13 @@ from pyrevit import revit, DB, forms, script
 doc = revit.doc
 my_config = script.get_config()
 
-try:
-    LINE_LENGTH = int(getattr(my_config, "LINE_LENGTH"))
-except:
-    LINE_LENGTH = 6
-try:
-    Y_OFFSET = int(getattr(my_config, "Y_OFFSET"))
-except:
-    Y_OFFSET = 1.5
-try:
-    X_OFFSET = int(getattr(my_config, "X_OFFSET"))
-except:
-    X_OFFSET = 7
-try:
-    TXT_TYPE_ID = doc.GetElement(DB.ElementId(
-        int(getattr(my_config, "TXT_TYPE_ID")))).Id
-except:
-    TXT_TYPE_ID = doc.GetElement(doc.GetDefaultElementTypeId(
-        DB.ElementTypeGroup.TextNoteType)).Id
-try:
-    INCLUDE_DESCRIPTION = getattr(my_config, "INCLUDE_DESCRIPTION")
-except:
-    INCLUDE_DESCRIPTION = False
+
+LINE_LENGTH = my_config.get_config("line_length")
+Y_OFFSET = my_config.get_config("y_offset")
+X_OFFSET = my_config.get_config("x_offset")
+TXT_TYPE_ID = my_config.get_config("text_style")
+
+INCLUDE_DESCRIPTION = getattr(my_config, "description")
 
 
 def activate_sym(symbol):
@@ -59,22 +44,22 @@ def set_bold(txt_note):
     return txt_note
 
 
-def cb_sym_placer(cb_symbol, point):
-    activate_sym(cb_symbol)
-
-    p1 = point
-    p2 = point.Add(DB.XYZ(LINE_LENGTH, 0, 0))
-
-    curve = DB.Line.CreateBound(p1, p2)
-    new_cb_sym = doc.Create.NewFamilyInstance(curve, cb_sym, view)
-
-    bb = new_vb_sym.get_BoundingBox(view)
-    bb_h = bb.Max.Y - bb.Min.Y
-    bb_offset_down = DB.XYZ(0, -bb_h, 0)
-
-    point = point.Add(offset)
-    point = point.Add(bb_offset_down)
-    return new_cb_sym, point
+# def cb_sym_placer(cb_symbol, point):
+#     activate_sym(cb_symbol)
+#
+#     p1 = point
+#     p2 = point.Add(DB.XYZ(LINE_LENGTH, 0, 0))
+#
+#     curve = DB.Line.CreateBound(p1, p2)
+#     new_cb_sym = doc.Create.NewFamilyInstance(curve, cb_sym, view)
+#
+#     bb = new_vb_sym.get_BoundingBox(view)
+#     bb_h = bb.Max.Y - bb.Min.Y
+#     bb_offset_down = DB.XYZ(0, -bb_h, 0)
+#
+#     point = point.Add(offset)
+#     point = point.Add(bb_offset_down)
+#     return new_cb_sym, point
 
 
 def get_level_from_view(view):

@@ -1,5 +1,6 @@
 title: "List Walls"
 tooltip: |
-  List all Wall types in a nice column.
+  List all project Wall types in a nice column.
+  The walls will be placed in model space, on the level of the active plan view. 
 
   Author: Daria Ivanciucova | Deyan Nenov | Jean-Marc Couffin
