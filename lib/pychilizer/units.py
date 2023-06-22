@@ -25,6 +25,15 @@ def get_length_units(doc):
     return int_length_units
 
 
+def get_length_units_name(doc):
+    units = get_length_units(doc)
+    if 'millimetres' in units.TypeId:
+        return 'mm'
+    elif 'feet' in units.TypeId:
+        return "ft"
+    else:
+        return ""
+
 def degree_conv(x):
     import math
     return (x * 180) / math.pi
