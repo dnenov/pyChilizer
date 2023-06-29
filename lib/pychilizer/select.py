@@ -2,7 +2,9 @@ from pyrevit import revit, DB, forms
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 from Autodesk.Revit import Exceptions
 import rpw
+from pychilizer import database
 
+BIC = DB.BuiltInCategory
 
 class CatFilter(ISelectionFilter):
     def __init__(self, cat):
@@ -53,5 +55,3 @@ def preselection_with_filter(cat):
         if sel_el.Category.Id.IntegerValue == int(cat):
             pre_selection.append(sel_el)
     return pre_selection
-
-

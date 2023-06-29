@@ -79,7 +79,10 @@ def Delete():
 
     if forms.alert(message, ok=False, yes=True, no=True, exitscript=True):
         for file in files_to_delete:
-            file.Delete()
+            try:
+                file.Delete()
+            except:
+                pass
         print(str(files) + ' files with a total of ' + str(b) + ' MB deleted.')
 
 
