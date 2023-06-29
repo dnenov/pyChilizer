@@ -7,10 +7,12 @@ def convert_length_to_internal(value, doc=revit.doc):
     converted = DB.UnitUtils.ConvertToInternalUnits(value, display_units)
     return converted
 
+
 def convert_length_to_display(value, doc=revit.doc):
     # convert length units from internal to display
     display_value = DB.UnitUtils.ConvertFromInternalUnits(value, get_length_units(doc))
     return display_value
+
 
 def get_length_units(doc):
     # fetch Revit's internal units depending on the Revit version
@@ -24,15 +26,6 @@ def get_length_units(doc):
         int_length_units = units.GetFormatOptions(DB.UnitType.UT_Length).DisplayUnits
     return int_length_units
 
-
-def get_length_units_name(doc):
-    units = get_length_units(doc)
-    if 'millimetres' in units.TypeId:
-        return 'mm'
-    elif 'feet' in units.TypeId:
-        return "ft"
-    else:
-        return ""
 
 def degree_conv(x):
     import math
@@ -64,3 +57,29 @@ def correct_input_units(val, doc):
     return res
 
 
+def round_metric_or_imperial(value, doc):
+    # if metric, will round to closest to 10mm
+    # if imperial, will round to 2 decimals
+    if is_metric(doc):
+        return round(value, -2)
+    else:
+        return round(value, 2)
+
+
+def convert_length_to_display_string(value, doc=revit.doc):
+    # convert length units from internal to display
+    format_options = DB.FormatValueOptions()
+    spec_type_id = DB.SpecTypeId.Length
+    format_options.AppendUnitSymbol = True
+    display_string = DB.UnitFormatUtils.Format(doc.GetUnits(), spec_type_id, value, False, format_options)
+    return display_string
+
+
+def convert_display_string_to_internal(value_string, doc=revit.doc):
+    # convert from display value (string) to internal. can convert fractional values like "0' - 3 5/8"
+    spec_type_id = DB.SpecTypeId.Length
+    options = DB.ValueParsingOptions()
+
+    parse = DB.UnitFormatUtils.TryParse(doc.GetUnits(), spec_type_id, value_string, options)
+    value_in_internal_units = parse[1]
+    return value_in_internal_units

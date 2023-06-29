@@ -9,17 +9,15 @@ import sys
 BIC = DB.BuiltInCategory
 doc = revit.doc
 view = revit.active_view
-units_symbol = units.get_length_units_name(doc)
 
-line_length = units.convert_length_to_internal(walltypesconfig.get_config("line_length"), doc)
-y_offset = units.convert_length_to_internal(walltypesconfig.get_config("y_offset"), doc)
-x_offset = units.convert_length_to_internal(walltypesconfig.get_config("x_offset"), doc)
+# read previous configurations or use default
+line_length = walltypesconfig.get_config("line_length", doc)
+y_offset = walltypesconfig.get_config("y_offset", doc)
+x_offset = walltypesconfig.get_config("x_offset", doc)
 text_style_id = DB.ElementId(walltypesconfig.get_config("text_style"))
 if not doc.GetElement(text_style_id):
     text_style_id = doc.GetDefaultElementTypeId(DB.ElementTypeGroup.TextNoteType)
 include_wall_buildup = walltypesconfig.get_config("include_buildup")
-
-
 
 def label_placer(text, point, text_style_id):
     point = point.Add(label_offset)
@@ -43,21 +41,21 @@ def get_level_from_view(view):
             return lvl
 
 
-def place_wall(loc, level):
+def place_wall(loc, view_level):
     p1 = loc + DB.XYZ(0, -1, 0)
     p2 = loc.Add(DB.XYZ(line_length, -1, 0))
 
     curve = DB.Line.CreateBound(p1, p2)
     try:
-        new_wall = DB.Wall.Create(doc, curve, level.Id, True)
+        new_wall_element = DB.Wall.Create(doc, curve, view_level.Id, True)
+        return new_wall_element
     except:
         pass
-    return new_wall
 
 
 def change_wall_type(wall_element, wall_type):
     try:
-        wall_element.WallType = wall_type
+       wall_element.WallType = wall_type
     except:
         return
 
@@ -70,36 +68,40 @@ with forms.WarningBar(title="Pick Point"):
     except Exceptions.InvalidOperationException as ex:
         forms.alert("Error! {}".format(ex.Message), ok=True, exitscript=True)
 
-coll_wall_types = DB.FilteredElementCollector(doc).OfCategory(
-    BIC.OST_Walls).WhereElementIsElementType()
+coll_wall_types = DB.FilteredElementCollector(doc)\
+    .OfCategory(BIC.OST_Walls)\
+    .OfClass(DB.WallType)\
+    .WhereElementIsElementType()
 
 dict_walls = {}
 layers_count = {}
 
 for wall_type in coll_wall_types:
-    try:
-        type_name = wall_type.get_Parameter(
-            DB.BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString()
+    type_name = wall_type.get_Parameter(
+        DB.BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString()
 
-        if include_wall_buildup:
-            # convert to mm without the ConvertUtils, kind of helps with RevitAPI Changes :/
-            type_name += "\n\nTotal Thickness {}{}:".format(units.convert_length_to_display(wall_type.Width, doc),units_symbol)
-            layers = wall_type.GetCompoundStructure().GetLayers()
+    if include_wall_buildup:
+        # format the description of the wall: Total Thickness and individual layer thickness and material
+        type_name += "\n\nTotal Thickness {}:".format(units.convert_length_to_display_string(wall_type.Width, doc))
+        wall_structure = wall_type.GetCompoundStructure()
+        if wall_structure:
+            layers = wall_structure.GetLayers()
             for layer in layers:
                 layer_function = layer.Function
-                # convert to mm without the ConvertUtils, kind of helps with RevitAPI Changes :/
-                width = layer.Width * 25.4 * 12
-                material = doc.GetElement(layer.MaterialId).Name
-                type_name += "\n\t- {}{} - {} - {}".format(width, units_symbol,layer_function, material)
+                width = units.convert_length_to_display_string(layer.Width, doc)
+                material = doc.GetElement(layer.MaterialId)
+                if material:
+                    material_name = material.Name
+                else:
+                    material_name = "ByCategory" # if no material is assigned
+                type_name += "\n\t- {} - {} - {}".format(width, layer_function, material_name)
             if type_name not in dict_walls.keys():
                 layers_count[type_name] = len(layers)
-        if type_name not in dict_walls.keys():
+    if type_name not in dict_walls.keys():
+        dict_walls[type_name] = wall_type
 
-            dict_walls[type_name] = wall_type
-    except:
-        continue
+label_offset = DB.XYZ(x_offset, 0, 0) # initial offset
 
-label_offset = DB.XYZ(x_offset, 0, 0)
 with revit.Transaction("Wall Types Legend"):
     if view.ViewType == DB.ViewType.Legend:
         source_legend_component = DB.FilteredElementCollector(doc, view.Id).OfCategory(
@@ -111,6 +113,7 @@ with revit.Transaction("Wall Types Legend"):
         initial_translation = - (source_bb.Max + source_bb.Min)/2
 
     elif view.ViewType == DB.ViewType.FloorPlan:
+
         level = get_level_from_view(view)
     for name in sorted(dict_walls):
         try:

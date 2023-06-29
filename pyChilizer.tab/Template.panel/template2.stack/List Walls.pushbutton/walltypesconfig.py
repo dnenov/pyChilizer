@@ -12,9 +12,9 @@ op.close_others()
 doc = revit.doc
 
 my_config = script.get_config()
-DEFAULT_WALL_LENGTH = round(units.convert_length_to_display(5, doc), -2)
-DEFAULT_Y_OFFSET = round(units.convert_length_to_display(5, doc), -2)
-DEFAULT_X_OFFSET = round(units.convert_length_to_display(5, doc), -2)
+DEFAULT_WALL_LENGTH = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
+DEFAULT_Y_OFFSET = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
+DEFAULT_X_OFFSET = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
 
 def get_text_types():
     text_types = DB.FilteredElementCollector(
@@ -26,7 +26,7 @@ def get_text_types():
 def get_config(option, doc=revit.doc):
     try:
         if option in ["line_length", "y_offset", "x_offset"]:
-            return units.convert_length_to_display(my_config.get_option(option), doc)
+            return my_config.get_option(option, doc)
         else:
             return my_config.get_option(option)
     except AttributeError or Exceptions.AttributeErrorException:
@@ -50,11 +50,11 @@ def rwp_ui_show(doc):
         prev_text_style_name = text_styles_dict.keys()[0]
     components = [
         Label("Wall Length"),
-        TextBox(name="line_length", Text=str(get_config("line_length", doc))),
+        TextBox(name="line_length", Text=units.convert_length_to_display_string(get_config("line_length", doc))),
         Label("Y Offset"),
-        TextBox(name="y_offset", Text=str(get_config("y_offset", doc))),
+        TextBox(name="y_offset", Text=units.convert_length_to_display_string(get_config("y_offset", doc))),
         Label("X Offset"),
-        TextBox(name="x_offset", Text=str(get_config("x_offset", doc))),
+        TextBox(name="x_offset", Text=units.convert_length_to_display_string(get_config("x_offset", doc))),
         Label("Text Style"),
         ComboBox(name="text_style", options=text_styles_dict.keys(), default=prev_text_style_name),
         CheckBox("include_buildup", "Include Wall Buildup (Wall layers, thickness, material)",
@@ -65,9 +65,9 @@ def rwp_ui_show(doc):
     ok = form.show()
     # assign chosen values
     if ok:
-        setattr(my_config, "line_length", units.convert_length_to_internal(float(form.values["line_length"])))
-        setattr(my_config, "y_offset", units.convert_length_to_internal(float(form.values["y_offset"])))
-        setattr(my_config, "x_offset", units.convert_length_to_internal(float(form.values["x_offset"])))
+        setattr(my_config, "line_length", units.convert_display_string_to_internal(form.values["line_length"], doc))
+        setattr(my_config, "y_offset", units.convert_display_string_to_internal(form.values["y_offset"], doc))
+        setattr(my_config, "x_offset", units.convert_display_string_to_internal(form.values["x_offset"], doc))
         setattr(my_config, "text_style", text_styles_dict[(form.values["text_style"])])
         setattr(my_config, "include_buildup", int(form.values["include_buildup"]))
         script.save_config()
