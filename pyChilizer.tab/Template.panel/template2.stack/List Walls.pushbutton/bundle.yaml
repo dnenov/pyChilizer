@@ -1,5 +1,8 @@
 title: "List Walls"
 tooltip: |
-  List all Wall types in a nice column.
-
-  Author: Daria Ivanciucova | Deyan Nenov
+  List all project Wall types in a nice column. Can be used on a Legend (creating Legend Components)\
+  or a Floor Plan (creating Walls in model space, on the level associated to the active view.)
+  
+  Shift-Click: Define spacing and choose if the description by layer is included in the notes. 
+  
+  Author: Daria Ivanciucova | Deyan Nenov | Jean-Marc Couffin
