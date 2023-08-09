@@ -13,7 +13,6 @@ doc = revit.doc
 
 my_config = script.get_config()
 DEFAULT_LENGTH = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
-print (my_config.get_option("line_length", doc))
 def get_text_types(doc):
     text_types = DB.FilteredElementCollector(
         doc).OfClass(DB.TextNoteType).ToElements()
@@ -41,7 +40,7 @@ def get_config(option, doc=revit.doc):
 
 
 def rwp_ui_show(doc):
-    text_styles_dict = get_text_types()
+    text_styles_dict = get_text_types(doc)
     prev_text_style_id = DB.ElementId(get_config("text_style"))
     prev_text_style_name = database.get_name(doc.GetElement(prev_text_style_id))
     if prev_text_style_name not in text_styles_dict.keys():
