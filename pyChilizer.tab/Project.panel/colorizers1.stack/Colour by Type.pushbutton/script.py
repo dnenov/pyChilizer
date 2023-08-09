@@ -1,21 +1,21 @@
+
 from collections import defaultdict
-from pyrevit import HOST_APP
 from pyrevit import forms
 from pyrevit import revit, DB
 from pyrevit import script
-import random
 import inviewconfig
 from pychilizer import database
 from pychilizer import colorize
+
 
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 doc = revit.doc
 view = revit.active_view
-overrides_option = inviewconfig.get_config()
+overrides_option = inviewconfig.get_overrides_config()
 solid_fill_pattern = database.get_solid_fill_pat(doc=doc)
-
-categories_for_selection = database.common_cat_dict()
+# get all model builtin categories of the doc
+categories_for_selection = colorize.get_categories_config(doc)
 sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 if forms.check_modelview(revit.active_view):

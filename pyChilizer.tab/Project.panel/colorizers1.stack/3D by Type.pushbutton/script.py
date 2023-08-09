@@ -12,10 +12,10 @@ from pyrevit.framework import List
 logger = script.get_logger()
 BIC = DB.BuiltInCategory
 doc = revit.doc
-overrides_option = threedconfig.get_config()
+overrides_option = threedconfig.get_overrides_config()
 solid_fill_pattern = database.get_solid_fill_pat(doc=doc)
 
-categories_for_selection = database.common_cat_dict()
+categories_for_selection = colorize.get_categories_config(doc)
 sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 
