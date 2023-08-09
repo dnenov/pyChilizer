@@ -8,7 +8,7 @@ from pyrevit import revit, DB, UI, forms, script
 from pyrevit.framework import List
 from collections import OrderedDict
 from Autodesk.Revit import Exceptions
-import config
+import listsymbolsconfig
 
 
 def convert_length_to_internal(from_units):
@@ -28,7 +28,9 @@ view = revit.active_view
 if view.ViewType != DB.ViewType.Legend:
     forms.alert("View is not a Legend View", exitscript=True)
 
-categories = config.get_categories()
+categories = listsymbolsconfig.get_categories()
+if not categories:
+    categories = listsymbolsconfig.categories
 
 cat_list = List[DB.BuiltInCategory](categories)
 multicat_filter = DB.ElementMulticategoryFilter(cat_list)
