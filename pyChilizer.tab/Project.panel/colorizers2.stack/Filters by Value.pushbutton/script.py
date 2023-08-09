@@ -18,6 +18,7 @@ view = revit.active_view
 
 overrides_option = filterbyvalueconfig.get_overrides_config()
 
+# TODO - disabled for now, let's see .. Line 141-ish
 # OTHER NOTES
 EPSILON = 0.001  # for parameters with storage type Double
 SHARED_PARAMETER_LABEL = " [Shared Parameter]"
@@ -131,9 +132,16 @@ for id in filterable_parameter_ids:
         if bip:
             param_dict[bip] = database.get_builtin_label(bip)
     else:
-        # Shared Parameter or (?) Builtin parameter
+        # Shared Parameter or (?) Project parameter
         shared_param = doc.GetElement(id)
-        param_dict[shared_param.GuidValue] = shared_param.Name + SHARED_PARAMETER_LABEL
+        try:
+            # It's a shared parameter
+            param_dict[shared_param.GuidValue] = shared_param.Name + SHARED_PARAMETER_LABEL
+        except:
+            # It's a project parameter - we are not using project parameters ? 
+            # param_dict[shared_param.Id] = shared_param.Name + "PROJECT PARAMETER"
+            pass
+ 
 
 forms.alert_ifnot(param_dict, "No parameters or elements found for selected categories", exitscript=True)
 # show UI form to pick parameters
