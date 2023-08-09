@@ -66,7 +66,10 @@ components = [
     Button("Select")
 ]
 form = FlexForm("Select", components)
-form.show()
+result = form.show()
+if not result:
+    forms.alert("Cancelled", ok=True, exitscript=True)
+
 # assign chosen parameters
 src_view = form.values["view_combobox"]
 chosen_text_style = form.values["textstyle_combobox"]

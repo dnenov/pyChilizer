@@ -6,7 +6,7 @@ from Autodesk.Revit.DB.Analysis import *
 from Autodesk.Revit.UI import *
 from Autodesk.Revit.UI.Selection import *
 
-from pyrevit import revit, DB, UI
+from pyrevit import revit, DB, UI, HOST_APP
 from pyrevit import forms, script
 
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
@@ -71,10 +71,18 @@ def GetInstanceParameters(_cat):
         forms.alert("No elements of this category found in the project.")
         script.exit()
 
-    parameters = [p.Definition.Name for p in el[0].Parameters \
-        if p.StorageType == DB.StorageType.String and \
-         p.Definition.ParameterType == DB.ParameterType.Text and \
-         not p.IsReadOnly]
+    parameters = []
+
+    if HOST_APP.is_newer_than(2022):
+        parameters = [p.Definition.Name for p in el[0].Parameters \
+            if p.StorageType == DB.StorageType.String and \
+            p.Definition.GetDataType() == DB.SpecTypeId.String.Text and \
+            not p.IsReadOnly]
+    else:
+        parameters = [p.Definition.Name for p in el[0].Parameters \
+            if p.StorageType == DB.StorageType.String and \
+            p.Definition.ParameterType == DB.ParameterType.Text and \
+            not p.IsReadOnly]
 
     return parameters
 
