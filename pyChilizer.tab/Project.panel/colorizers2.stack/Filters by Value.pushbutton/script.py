@@ -16,7 +16,7 @@ BIP = DB.BuiltInParameter
 doc = revit.doc
 view = revit.active_view
 
-overrides_option = filterbyvalueconfig.get_config()
+overrides_option = filterbyvalueconfig.get_overrides_config()
 
 # TODO - disabled for now, let's see .. Line 141-ish
 # OTHER NOTES
@@ -93,7 +93,7 @@ def add_param_value(param, param_storage_type, values):
 banned_symbol_parameters = [DB.BuiltInParameter.SYMBOL_NAME_PARAM,
                             DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM]
 
-categories_for_selection = database.common_cat_dict()
+categories_for_selection = colorize.get_categories_config(doc)
 sorted_cats = sorted(categories_for_selection.keys(), key=lambda x: x)
 
 # ask the user for category/categories from the list
