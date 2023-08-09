@@ -12,11 +12,9 @@ op.close_others()
 doc = revit.doc
 
 my_config = script.get_config()
-DEFAULT_WALL_LENGTH = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
-DEFAULT_Y_OFFSET = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
-DEFAULT_X_OFFSET = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
-
-def get_text_types():
+DEFAULT_LENGTH = units.round_metric_or_imperial(units.convert_length_to_display(5, doc), doc)
+print (my_config.get_option("line_length", doc))
+def get_text_types(doc):
     text_types = DB.FilteredElementCollector(
         doc).OfClass(DB.TextNoteType).ToElements()
     dict_text_types = {database.get_name(i): i.Id.IntegerValue for i in text_types}
@@ -26,18 +24,18 @@ def get_text_types():
 def get_config(option, doc=revit.doc):
     try:
         if option in ["line_length", "y_offset", "x_offset"]:
-            return my_config.get_option(option, doc)
+            return my_config.get_option(option, DEFAULT_LENGTH)
         else:
             return my_config.get_option(option)
     except AttributeError or Exceptions.AttributeErrorException:
         if option == "line_length":
-            return DEFAULT_WALL_LENGTH
+            return DEFAULT_LENGTH
         elif option == "y_offset":
-            return DEFAULT_Y_OFFSET
+            return DEFAULT_LENGTH
         elif option == "x_offset":
-            return DEFAULT_X_OFFSET
+            return DEFAULT_LENGTH
         elif option == "text_style":
-            return get_text_types().values()[0]
+            return get_text_types(doc).values()[0]
         elif option == "include_buildup":
             return False
 
