@@ -29,7 +29,7 @@ from pyrevit import revit, DB
 uidoc = __revit__.ActiveUIDocument
 doc = __revit__.ActiveUIDocument.Document
 
-__doc__ = 'Manage worksets and pinning of critical elements and links.'\
+__doc__ = 'pyChilizer toolbar'\
           
 # find the path of ui.xaml
 from pyrevit import UI
@@ -46,10 +46,12 @@ from System import Windows
 class AboutWindow(Windows.Window):
     def __init__(self):
         wpf.LoadComponent(self, xamlfile)
-        self.logo_img.Source = self._get_logo_image()
+        # self.logo_img.Source = self._get_logo_image()
  
     #get logo png from root folder
     def _get_logo_image(self):
+        print("test")
+        return
         path = os.path.dirname(os.path.abspath(__file__))
         logo = os.path.join(path, 'logo.png')
 

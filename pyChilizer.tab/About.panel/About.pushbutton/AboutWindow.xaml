@@ -29,12 +29,16 @@
             <Border.Effect>
                 <DropShadowEffect Color="{DynamicResource pyRevitDarkColor}" BlurRadius="15" Opacity="0.25"/>
             </Border.Effect>
-            <Grid Margin="20,20,20,20">
+            <Grid Margin="20,20,20,20" x:Name="mainGrid">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="180"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Image x:Name="logo_img" Grid.Column="0" Margin="-20 0 0 0" MaxWidth="120"/> 
+                <Canvas Margin="0 50 0 0">
+                    <Path x:Name="logo_img" 
+                          Data="M 69.4275 64.59 c -3.45 -0.915 -7.08 -1.3875 -10.875 -1.3875 c -3.4275 0 -7.11 0.39 -10.935 1.4175 l 10.905 -17.8275 L 69.4275 64.59 z M 100.335 90.66 c -0.1575 -0.255 -0.3075 -0.51 -0.465 -0.7575 L 58.5225 22.035 l -41.79 68.5875 l 0.045 0.0225 c -0.0075 0.015 -0.0225 0.03 -0.03 0.045 l 11.2875 5.925 c 0.3225 -0.54 0.645 -1.065 0.9675 -1.5825 c 7.9725 -12.7125 17.0025 -19.08 29.5425 -19.08 c 15.555 0 24.33 10.71 29.925 19.725 c 0.2025 0.33 0.405 0.6525 0.6 0.975 L 100.335 90.66 z" 
+                          Fill="black" />
+                </Canvas>
                 <StackPanel Grid.Column="1" HorizontalAlignment="Left">
                     <Label FontSize="16" FontWeight="Bold">pyChilizer</Label>
                     <Label/>
