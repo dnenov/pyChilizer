@@ -240,64 +240,67 @@ def get_bb_outline(bb):
 
 
 def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
-    # set the crop box of the view to elements's bounding box in that view
-    # draw 2 sets of outlines for each orientation (front/back, left/right)
-    # deactivate crop first, just to make sure the element appears in view
-    view.CropBoxActive = False
-    doc.Regenerate()
-
-    bb = element.get_BoundingBox(view)
-
-    pt1 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
-    pt2 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Max.Z)
-    pt3 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Max.Z)
-    pt4 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
-
-    pt7 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z)
-    pt8 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Max.Z)
-    pt5 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Max.Z)
-    pt6 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
-
-    l1 = DB.Line.CreateBound(pt1, pt2)
-    l2 = DB.Line.CreateBound(pt2, pt3)
-    l3 = DB.Line.CreateBound(pt3, pt4)
-    l4 = DB.Line.CreateBound(pt4, pt1)
-
-    l5 = DB.Line.CreateBound(pt6, pt5)
-    l6 = DB.Line.CreateBound(pt5, pt8)
-    l7 = DB.Line.CreateBound(pt8, pt7)
-    l8 = DB.Line.CreateBound(pt7, pt6)
-
-    curves_set1 = [l1, l2, l3, l4]
-    curves_set2 = [l5, l6, l7, l8]
-
-    crsm = view.GetCropRegionShapeManager()
-    view_direction = view.ViewDirection
-
-    view.CropBoxActive = True
-    # offset will fail if crop offset value too small
     try:
-        # try with set 1, if doesn't work try with set 2
-        crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set1))
-        # offset the crop with the specified offset
-        curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
-        # in case the offset works inwards, correct it to offset outwards
-        if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
-            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
-        crsm.SetCropShape(curve_loop_offset)
-    except:
-        crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set2))
+        # set the crop box of the view to elements's bounding box in that view
+        # draw 2 sets of outlines for each orientation (front/back, left/right)
+        # deactivate crop first, just to make sure the element appears in view
+        view.CropBoxActive = False
+        doc.Regenerate()
+
+        bb = element.get_BoundingBox(view)
+
+        pt1 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z)
+        pt2 = DB.XYZ(bb.Max.X, bb.Max.Y, bb.Max.Z)
+        pt3 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Max.Z)
+        pt4 = DB.XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z)
+
+        pt7 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z)
+        pt8 = DB.XYZ(bb.Min.X, bb.Max.Y, bb.Max.Z)
+        pt5 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Max.Z)
+        pt6 = DB.XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z)
+
+        l1 = DB.Line.CreateBound(pt1, pt2)
+        l2 = DB.Line.CreateBound(pt2, pt3)
+        l3 = DB.Line.CreateBound(pt3, pt4)
+        l4 = DB.Line.CreateBound(pt4, pt1)
+
+        l5 = DB.Line.CreateBound(pt6, pt5)
+        l6 = DB.Line.CreateBound(pt5, pt8)
+        l7 = DB.Line.CreateBound(pt8, pt7)
+        l8 = DB.Line.CreateBound(pt7, pt6)
+
+        curves_set1 = [l1, l2, l3, l4]
+        curves_set2 = [l5, l6, l7, l8]
+
+        crsm = view.GetCropRegionShapeManager()
+        view_direction = view.ViewDirection
+
+        view.CropBoxActive = True
+        # offset will fail if crop offset value too small
         try:
-            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction) # fails here
-        except Exceptions.InternalException:
-            forms.alert("Room crop failed. This might be happening if the room placement point is not in the room -- or -- if the Crop Offset is set to a value too large. Review and try again")
-            return False
-        if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
-            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
-        crsm.SetCropShape(curve_loop_offset)
+            # try with set 1, if doesn't work try with set 2
+            crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set1))
+            # offset the crop with the specified offset
+            curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction)
+            # in case the offset works inwards, correct it to offset outwards
+            if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+                curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+            crsm.SetCropShape(curve_loop_offset)
+        except:
+            crop_loop = DB.CurveLoop.Create(List[DB.Curve](curves_set2))
+            try:
+                curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, view_direction) # fails here
+            except Exceptions.InternalException:
+                forms.alert("Room crop failed. This might be happening if the room placement point is not in the room -- or -- if the Crop Offset is set to a value too large. Review and try again")
+                return False
+            if curve_loop_offset.GetExactLength() < crop_loop.GetExactLength():
+                curve_loop_offset = DB.CurveLoop.CreateViaOffset(crop_loop, crop_offset, -view_direction)
+            crsm.SetCropShape(curve_loop_offset)
 
-    return True
-
+        return True
+    except Exception as e:
+        forms.alert(f"An exception occurred: {e}\nPlease contact 'info@archilizer.com' if you run into an error here.")
+        return False
 
 def set_crop_to_boundary(room, boundary_curve, view, crop_offset, doc=revit.doc):
     # set the crop box of the view to match the boundary in width and room's bounding box in that view in height
