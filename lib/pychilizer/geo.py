@@ -299,7 +299,7 @@ def set_crop_to_bb(element, view, crop_offset, doc=revit.doc):
 
         return True
     except Exception as e:
-        forms.alert(f"An exception occurred: {e}\nPlease contact 'info@archilizer.com' if you run into an error here.")
+        forms.alert("An exception occurred: {}\nPlease contact 'info@archilizer.com' if you run into an error here.".format(e))
         return False
 
 def set_crop_to_boundary(room, boundary_curve, view, crop_offset, doc=revit.doc):
