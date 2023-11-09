@@ -9,7 +9,6 @@ from pyrevit.revit.db import query
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 output = script.get_output()
 from Autodesk.Revit import Exceptions
-import rpw
 from pychilizer import database, geo
 from os.path import isfile
 
@@ -78,7 +77,7 @@ def select_inplace_filter():
     # select elements while applying filter
     try:
         with forms.WarningBar(title="Select In-Place element to transform"):
-            ref = rpw.revit.uidoc.Selection.PickObject(ObjectType.Element, InPlaceFilter())
+            ref = revit.uidoc.Selection.PickObject(ObjectType.Element, InPlaceFilter())
             selection = revit.doc.GetElement(ref)
             return selection
     except Exceptions.OperationCanceledException:
