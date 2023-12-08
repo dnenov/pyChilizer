@@ -12,32 +12,8 @@ view_filter_ids = view.GetFilters()
 
 
 def overrides_reset():
-
     # returns Override Graphic Settings object with all overrides set to initial values
-    no_color = DB.Color.InvalidColorValue
-    invalid_id = DB.ElementId.InvalidElementId
-
     overrides = DB.OverrideGraphicSettings()
-    overrides.SetHalftone(False)
-    overrides.SetCutBackgroundPatternColor(no_color)
-    overrides.SetCutBackgroundPatternId(invalid_id)
-    overrides.SetCutForegroundPatternColor(no_color)
-    overrides.SetCutForegroundPatternId(invalid_id)
-    overrides.SetCutLineColor(no_color)
-    overrides.SetCutLinePatternId(invalid_id)
-    overrides.SetCutLineWeight(-1)
-    overrides.SetCutBackgroundPatternVisible(True)
-    overrides.SetCutForegroundPatternVisible(True)
-    overrides.SetSurfaceBackgroundPatternVisible(True)
-    overrides.SetSurfaceForegroundPatternVisible(True)
-    overrides.SetProjectionLineColor(no_color)
-    overrides.SetProjectionLinePatternId(invalid_id)
-    overrides.SetProjectionLineWeight(-1)
-    overrides.SetSurfaceBackgroundPatternColor(no_color)
-    overrides.SetSurfaceBackgroundPatternId(invalid_id)
-    overrides.SetSurfaceForegroundPatternColor(no_color)
-    overrides.SetSurfaceForegroundPatternId(invalid_id)
-    overrides.SetSurfaceTransparency(0)
     return overrides
 
 if view_filter_ids:
