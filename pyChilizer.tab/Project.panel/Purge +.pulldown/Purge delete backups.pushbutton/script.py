@@ -1,6 +1,6 @@
 import System.IO
 import enum
-
+import re
 from pyrevit import forms
 
 files = 0
@@ -34,10 +34,12 @@ def DeleteRecursive(_dir):
         global files
         global lengths
 
-        for file in dir_info.EnumerateFiles("*.0???.*"):
-            lengths += file.Length
-            files += 1
-            files_to_delete.append(file)
+        for file in dir_info.EnumerateFiles():
+            if re.match(r'^.+?\.\d{4}\.rfa$', file.Name) or \
+                    re.match(r'^.+?\.\d{4}\.rvt$', file.Name):
+                        lengths += file.Length
+                        files += 1
+                        files_to_delete.append(file)
     except:
         pass
 
@@ -80,6 +82,7 @@ def Delete():
     if forms.alert(message, ok=False, yes=True, no=True, exitscript=True):
         for file in files_to_delete:
             try:
+                # print (file.Name)
                 file.Delete()
             except:
                 pass
