@@ -2,7 +2,7 @@ from pyrevit import revit, DB, script, forms
 from rpw.ui.forms import FlexForm, Label, TextBox, Button,ComboBox, Separator
 from pychilizer import database, units, select, geo
 import sys
-
+from Autodesk.Revit import Exceptions
 
 output = script.get_output()
 logger = script.get_logger()
@@ -71,7 +71,15 @@ for room in selection:
         elevation_count = ["A", "B", "C", "D"]
         doc.Regenerate()
         for i in range(4):
-            elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
+            try:
+                elevation = new_marker.CreateElevation(doc, viewplan.Id, i)
+            except Exceptions.ArgumentException:
+
+                forms.alert(msg="Something is wrong with the marker", \
+                            sub_msg="Please check the Elevation Tag and Elevation Marker Families are working properly.", \
+                            ok=True, \
+                            warn_icon=True, exitscript=True)
+
             elevation.Scale = view_scale
             # Rename elevations
             elevation_name = room_name_nr + " - Elevation " + elevation_count[i]
