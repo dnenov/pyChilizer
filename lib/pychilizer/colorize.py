@@ -14,37 +14,47 @@ import colorsys
 def basic_colours():
     # colour presets - short colours list (14 colours)
     basic_colours = [
-        "#40DFFF",
-        "#803ABA",
-        "#E6B637",
-        "#A8DA84"
-        "#8337E6",
-        "#EBE70E",
-        "#D037E6",
+        "#40DFFF",  # cyan
+        "#803ABA",  # purple
+        "#E6B637",  # golden
+        "#A8DA84"  # salad green
+        "#EDC790",  # purple again replaced with beige
+        "#EBE70E",  # yellow
+        "#F2C9F0",  # magenta replaced with lavender
         "#074FE0",  # blue
-        "#03A64A",
-        "#662400",
-        "#FF6B1A",
-        "#FF4858",
-        "#747F7F",
-        "#919151"
+        "#03A64A",  # green
+        "#662400",  # brown
+        "#FF6B1A",  # orange
+        "#F0323E",  # red
+        "#5E3C5A",  # pink
+        "#747F7F",  # grey
+        "#919151",  # dull bronze,
+        "#9cb5ff",  # blue
+        "#02602b",  # dark green
+        "#635650",  # taupe
+        "#a37862",  # mid beige
+        "#913743",  # wine
+        "#87247c",  # violet
+        "#4e8080",  # swampy turqoise
+        "#abab29",  # olive
+        "#6583c9",  # cornflower blue
+        "#678c61",  # dark olive green
+        "#005c93",  # steel blue
+        "#e5f77b",  # laser lemon
+        "#9c7500",  # yellow orange
+        "#485938",  # tom thumb
+        "#a6ffff",  # turquoise blue
+        "#e6e5c1",  # spring green
+        "#eb48bc",  # medium magenta
+        "#d5d3de",  # periwinkle
+        "#b5dae8",  # regent blue
+        "#66630e",  # darker olive
+        "#f3aa6c",  # grapefruit
+        "#857694",  # manatee
+        "#0b53e3"  # electric blue
     ]
 
     return basic_colours
-
-
-def rainbow():
-    dark = "#42371E"
-    red = "#F10800"
-    orange = "#F27405"
-    yellow = "#FFF14E"
-    green = "#016B31"
-    pink = "#F587FF"
-    blue = "#6DDEF0"
-    violet = "#550580"
-    cyan = "#40DFFF"
-    rainbow_colours = [dark, red, orange, yellow, green, blue, cyan, violet, pink]
-    return rainbow_colours
 
 
 def hex_to_rgb(hex):
@@ -124,10 +134,7 @@ def random_colour_hsv(n):
 
 
 def get_colours(n):
-    if n < 14:
-        colours = basic_colours()
-    else:
-        colours = rainbow()
+    colours = basic_colours()
     col_dict = polylinear_gradient(colours, n)
     chop_col_list = col_dict["hex"][0:n]
     # gradient method
