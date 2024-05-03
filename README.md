@@ -8,7 +8,9 @@ Besides the many useful tools that come with 'vanilla' pyRevit, the platform tha
 pyChilizer is an extension done by Archilizer that contains many bite-size applications for Revit that aim to automate the drudgery of everyday draughting. It is also a repository/dump for all cool ideas that can later be developed into stand-alone Revit Add-ins. This project is open-source and free to use.
 
 <img src="/images/pyChilizerRibbonSplit.png" alt="pyChilizer Ribbon Split">
+<sup>*Ribbon shown split to fit page</sup>
 <img src="/images/pyChilizerPurgeDropdown.png" alt="pyChilizer Purge Dropdown" height="250">
+
 
 ## How-to
 ## Preferred Option (Update)
