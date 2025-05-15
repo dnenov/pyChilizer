@@ -41,7 +41,7 @@ vport_element_ids = vsheet.GetAllViewports()
 vports = []
 
 for vp_id in vport_element_ids:
-	vports.Add(doc.GetElement(vp_id))
+    vports.Add(doc.GetElement(vp_id))
 
 counter = 0
 carry = ''
@@ -52,17 +52,17 @@ try:
     while True:
         counter += 1
         finished = False
-        selection_element = revit.pick_element_by_category(DB.BuiltInCategory.OST_Viewports, 'Pick Viewport') # select a viewport       
-        detail_number = selection_element.LookupParameter("Detail Number") # take it's detail number parameter
+        selection_element = revit.pick_element_by_category(DB.BuiltInCategory.OST_Viewports, 'Pick Viewport') # select a viewport
+        detail_number = selection_element.get_Parameter(DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER) # take it's detail number parameter
 
         with revit.Transaction("Renumber", doc=doc):
             # check if the desired detail number is already in use
             for vp in vports:
-                cur_vp_param = vp.LookupParameter("Detail Number")
+                cur_vp_param = vp.get_Parameter(DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER)
                 cur_vp = str(cur_vp_param.AsString())
                 # if it is, make a swap and set it out
                 # mark as finished so we don't do it again
-                if cur_vp == str(counter):         
+                if cur_vp == str(counter):
                     carry = str(detail_number.AsString())
                     detail_number.Set("99")
                     cur_vp_param.Set(carry)
@@ -71,6 +71,6 @@ try:
             if not finished:
                 # if we didn't find a duplicate, just set it up
                 detail_number.Set(str(counter))
-except:   
+except:
     pass
 
