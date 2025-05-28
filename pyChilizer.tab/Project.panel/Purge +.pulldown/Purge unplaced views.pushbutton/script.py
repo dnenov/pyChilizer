@@ -63,20 +63,21 @@ if len(unplaced_views) == 0:
 else:
     if forms.alert(message, sub_msg="You can select the views to keep. If you select none, all views will be purged.", ok=False, yes=True, no=True, exitscript=True):
         excluded_views = select_views_to_preserve(sheets_to_keep=unplaced_views)
-        views_to_purge = List[DB.ElementId]([v for v in unplaced_views if v not in excluded_views])
-        with revit.Transaction("Delete unplaced Views"):
-            try:
-                purged_names = []  # Get sheet names
+        if excluded_views is not None:
+            views_to_purge = List[DB.ElementId]([v for v in unplaced_views if v not in excluded_views])
+            with revit.Transaction("Delete unplaced Views"):
                 try:
-                    for view in views_to_purge:
-                        name = doc.GetElement(view).Name
-                        doc.Delete(view)  # Delete the sheets 
-                        purged_names.append(name)
+                    purged_names = []  # Get sheet names
+                    try:
+                        for view in views_to_purge:
+                            name = doc.GetElement(view).Name
+                            doc.Delete(view)  # Delete the sheets
+                            purged_names.append(name)
+                    except:
+                        pass
+                    # print result
+                    print("VIEWS DELETED:\n")
+                    for s in purged_names:
+                        print("{}".format(s))
                 except:
-                    pass
-                # print result
-                print("VIEWS DELETED:\n")
-                for s in purged_names:
-                    print("{}".format(s))
-            except:
-                forms.alert("Could not execute the script.")
+                    forms.alert("Could not execute the script.")

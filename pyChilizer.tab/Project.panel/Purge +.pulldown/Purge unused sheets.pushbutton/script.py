@@ -78,16 +78,17 @@ else:
         str(len(unused_sheets)))
     if forms.alert(message, sub_msg="You can select the sheets to keep", ok=False, yes=True, no=True, exitscript=True):
         excluded_sheets = select_sheets_preserve(sheets_to_keep=unused_sheets)
-        sheets_to_purge = List[DB.ElementId]([sh.Id for sh in unused_sheets if sh not in excluded_sheets])
-        if not sheets_to_purge:
-            forms.alert("No Sheets deleted.", exitscript=True)
-        with revit.Transaction(__title__):
-            try:
-                s_names = [doc.GetElement(s).Title for s in sheets_to_purge]  # Get sheet names
-                doc.Delete(sheets_to_purge)  # Delete the sheets
-                # print result
-                print("SHEETS DELETED:\n")
-                for s in s_names:
-                    print("{}".format(s))
-            except:
-                forms.alert("Could not execute the script (make sure there are no active empty Sheets).")
+        if excluded_sheets is not None:
+            sheets_to_purge = List[DB.ElementId]([sh.Id for sh in unused_sheets if sh not in excluded_sheets])
+            if not sheets_to_purge:
+                forms.alert("No Sheets deleted.", exitscript=True)
+            with revit.Transaction(__title__):
+                try:
+                    s_names = [doc.GetElement(s).Title for s in sheets_to_purge]  # Get sheet names
+                    doc.Delete(sheets_to_purge)  # Delete the sheets
+                    # print result
+                    print("SHEETS DELETED:\n")
+                    for s in s_names:
+                        print("{}".format(s))
+                except:
+                    forms.alert("Could not execute the script (make sure there are no active empty Sheets).")
