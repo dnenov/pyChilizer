@@ -34,8 +34,6 @@ category_dict = {
     "Communication Devices": BIC.OST_CommunicationDevices,
     "Conduit Fittings": BIC.OST_ConduitFitting,
     "Conduits": BIC.OST_Conduit,
-    "Curtain Panels": BIC.OST_CurtainWallPanels,
-    "Curtain Wall Mullions": BIC.OST_CurtainWallMullions,
     "Data Devices": BIC.OST_DataDevices,
     "Doors": BIC.OST_Doors,
     "Duct Accessories": BIC.OST_DuctAccessory,
