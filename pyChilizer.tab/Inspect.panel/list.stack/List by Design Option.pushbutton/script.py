@@ -2,8 +2,10 @@ __title__ = "List by Design Option"
 __doc__ = "List numbers of elements of project's Design Options, broken down by category."
 
 from pyrevit import revit, DB, UI, forms
+from pyrevit.compat import get_elementid_value_func
 from collections import defaultdict
 
+get_elementid_value = get_elementid_value_func()
 
 def get_elements_by_do(do, doc=revit.doc):
     # quickly collect element belonging to a Design Option
@@ -62,7 +64,7 @@ for do_full_name, do in do_dict.items():
         for elem in all_in_do:
             try:
                 cat_name = elem.Category.Name
-                cat_id = elem.Category.Id.IntegerValue
+                cat_id = get_elementid_value(elem.Category.Id)
                 if cat_id <0 and cat_id not in cat_ban_list:
                     element_categories[cat_name].append(elem)
                     counter += 1

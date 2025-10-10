@@ -8,6 +8,7 @@ from pyrevit.framework import List
 import filterbyvalueconfig
 from pyrevit.revit.db import query
 from pyrevit.forms import reactive, WPF_VISIBLE, WPF_COLLAPSED
+from pyrevit.compat import get_elementid_value_func
 from Autodesk.Revit import Exceptions
 
 logger = script.get_logger()
@@ -17,6 +18,8 @@ doc = revit.doc
 view = revit.active_view
 
 overrides_option = filterbyvalueconfig.get_overrides_config()
+
+get_elementid_value = get_elementid_value_func()
 
 # TODO - disabled for now, let's see .. Line 141-ish
 # OTHER NOTES
@@ -125,7 +128,7 @@ forms.alert_ifnot(filterable_parameter_ids.Count != 0, "No parameters are common
 
 for id in filterable_parameter_ids:
     # the Id of BuiltInParameters is a negative one
-    if id.IntegerValue < 0:
+    if get_elementid_value(id) < 0:
         # iterate through all parameters of an element of category(ies)
         # until the Id of the parameter matches the id from the list of filterable parameters
         bip = match_bip_by_id(chosen_bics, id)
