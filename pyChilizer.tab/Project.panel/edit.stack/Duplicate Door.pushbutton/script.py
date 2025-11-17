@@ -102,7 +102,7 @@ def _duplicate_symbol(symbol):
             doc.Regenerate()
         t.Commit()
 
-    logger.info("Duplicated door type '{}' -> '{}'".format(symbol_name, new_name))
+    # logger.info("Duplicated door type '{}' -> '{}'".format(symbol_name, new_name))
     return new_symbol
 
 
@@ -112,7 +112,7 @@ def _change_door_type(door, new_symbol):
         t.Start()
         door.ChangeTypeId(new_symbol.Id)
         t.Commit()
-    logger.info("Changed door '{}' to use type '{}'".format(_get_symbol_name(door), _get_symbol_name(new_symbol)))
+    # logger.info("Changed door '{}' to use type '{}'".format(_get_symbol_name(door), _get_symbol_name(new_symbol)))
 
 
 # Get door from selection or prompt user
