@@ -383,6 +383,10 @@ def check_inplace(doc):
         if family.IsInPlace:
             in_place_families.append(instance)
     if in_place_families:
+        from System.Collections.Generic import List
+        element_ids = List[DB.ElementId]([instance.Id for instance in in_place_families])
+        uidoc = revit.uidoc
+        uidoc.Selection.SetElementIds(element_ids)
         ch_result = "Fail"
         ch_notes = str(len(in_place_families)) + " In-Place Elements"
     else:

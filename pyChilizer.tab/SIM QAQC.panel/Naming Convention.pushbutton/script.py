@@ -13,7 +13,7 @@ import re
 output = script.get_output()
 worksets = DB.FilteredWorksetCollector(doc).OfKind(DB.WorksetKind.UserWorkset).ToWorksets()
 
-disciplines = ["Ar", "St", "Me", "El", "Ir", "Fc", "Pl", "La"]
+disciplines = ["Ar", "St", "Me", "El", "Ir", "Fa", "Pl", "La"]
 categories = ["AVD",
               "ATe",
               "Cas",
@@ -78,6 +78,11 @@ categories = ["AVD",
               "Joi",
               "DTi",
               "EMa",
+              "GMo",
+              "PFi",
+              "PEq",
+              "Flo",
+              "Dpa",
               ]
 
 system_fam_category_ids = [

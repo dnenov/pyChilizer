@@ -139,7 +139,8 @@ def write_parameter_scores_to_csv(doc, parameters, category_dict, csv_path):
 
                     score = round((float(has_value) / total) * 100, 2)
                     score_values.append(score)
-                    row.append(score)
+                    # Write score as a number without percentage formatting to avoid Excel adding apostrophes
+                    row.append(float(score))
                 writer_obj.writerow(row)
     except Exception as e:
         forms.alert(str(e), exitscript=True)
