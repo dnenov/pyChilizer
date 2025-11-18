@@ -4,6 +4,7 @@ __doc__ = "Select an In-Place element to convert into a Loadable family and plac
 
 
 from pyrevit import revit, DB, UI, HOST_APP, forms, script
+from pyrevit.compat import get_elementid_value_func
 import tempfile
 from pyrevit.revit.db import query
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
@@ -12,6 +13,7 @@ from Autodesk.Revit import Exceptions
 from pychilizer import database, geo
 from os.path import isfile
 
+get_elementid_value = get_elementid_value_func()
 
 #todo: update languages
 
@@ -109,7 +111,7 @@ for instance_geo in geo_element:
             new_curve = geometry.CreateTransformed(inverted_transform_by_ref(bb.Min))
             curves.append(new_curve)
 # get the ID of the element's category
-el_cat_id = source_element.Category.Id.IntegerValue
+el_cat_id = get_elementid_value(source_element.Category.Id)
 # check the language of the family templates library
 language = database.get_family_template_language()
 fam_template_path = None

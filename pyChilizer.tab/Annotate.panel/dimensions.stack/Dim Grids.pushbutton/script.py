@@ -4,6 +4,7 @@ __title__ = 'Dimension\nGrids'
 
 
 from pyrevit import revit, DB, forms
+from pyrevit.compat import get_elementid_value_func
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 import rpw
 from Autodesk.Revit import Exceptions
@@ -14,13 +15,15 @@ doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 active_view = doc.ActiveView
 
+get_elementid_value = get_elementid_value_func()
+
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
     def __init__(self, cat):
         self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Id.IntegerValue == int(self.cat):
+        if get_elementid_value(e.Category.Id) == int(self.cat):
             return True
         else:
             return False

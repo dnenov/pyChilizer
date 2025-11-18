@@ -11,14 +11,15 @@ from Autodesk.Revit.UI import *
 
 from pyrevit import revit, DB
 from pyrevit import forms
-
-from pyrevit import revit, DB, forms
+from pyrevit.compat import get_elementid_value_func
 
 # set the active Revit application and document
 app = __revit__.Application
 doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 active_view = doc.ActiveView
+
+get_elementid_value = get_elementid_value_func()
 
 
 # Find us a 3D View to create
@@ -43,11 +44,11 @@ def SetWorksetVisibility(view, workset):
 def RemoveViewTemplate(viewtype_id):
     view_type = doc.GetElement(viewtype_id)
     template_id = view_type.DefaultTemplateId
-    if template_id.IntegerValue != -1:
+    if get_elementid_value(template_id) != -1:
         if forms.alert("You are about to remove the View Template associated with this View Type. Is that cool with ya?",
                     ok=False, yes=True, no=True, exitscript=True):
             with revit.Transaction("Remove View Template"):
-                view_type.DefaultTemplateId = DB.ElementId(-1)
+                view_type.DefaultTemplateId = DB.ElementId.InvalidElementId
 
 
 # Delete existing views based on workset naming

@@ -1,6 +1,8 @@
 from pyrevit import revit, DB, UI, forms
+from pyrevit.compat import get_elementid_value_func
 from collections import defaultdict
 
+get_elementid_value = get_elementid_value_func()
 
 def get_elements_by_workset(w, doc=revit.doc):
     # quickly collect element belonging to a Workset
@@ -50,7 +52,7 @@ for w in worksets:
         for elem in all_in_w:
             try:
                 cat_name = elem.Category.Name
-                cat_id = elem.Category.Id.IntegerValue
+                cat_id = get_elementid_value(elem.Category.Id)
                 if cat_id <0 and cat_id not in cat_ban_list:
                     element_categories[cat_name].append(elem)
                     counter += 1
