@@ -84,3 +84,23 @@ def get_element():
         return None
 
     return None
+
+element = get_element()
+if not element:
+    forms.alert(
+        "No valid element selected. Please select an element that has a type.",
+        ok=True,
+        exitscript=True
+    )
+
+type_id = element.GetTypeId()
+source_type = doc.GetElement(type_id) if type_id else None
+if not source_type:
+    forms.alert("Selected element has no valid type.", ok=True, exitscript=True)
+
+type_name = _get_symbol_name(source_type)
+
+forms.alert(
+    "You selected element ID {}.\nIts current type is:\n'{}'".format(element.Id.IntegerValue, type_name),
+    ok=True
+)
