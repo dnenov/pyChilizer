@@ -11,6 +11,7 @@ uidoc = revit.uidoc
 logger = script.get_logger()
 
 
+# BASICS
 
 def _has_type(elem):
     """Return True if the element has a valid type id."""
@@ -53,7 +54,44 @@ def _get_symbol_name(symbol):
     # Final fallback
     return "Unnamed Type"
 
-#class TypeSelectionFilter(ISelectionFilter):
+
+def _get_family_name(element_type):
+    """Get a readable family name for an ElementType, if possible."""
+    if not element_type:
+        return "Family"
+
+    # Loadable families (FamilySymbol etc.)
+    try:
+        if hasattr(element_type, "Family") and element_type.Family:
+            fam_name = element_type.Family.Name
+            if fam_name:
+                return fam_name
+    except Exception:
+        pass
+
+    # Try a built-in parameter for family name
+    try:
+        fam_param = element_type.get_Parameter(DB.BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM)
+        if fam_param:
+            fam_name = fam_param.AsString()
+            if fam_name:
+                return fam_name
+    except Exception:
+        pass
+
+    # Fallback: try category name
+    try:
+        if element_type.Category and element_type.Category.Name:
+            return element_type.Category.Name
+    except Exception:
+        pass
+
+    return "Unknown Family"
+
+
+# SELECTION HELPERS
+
+class TypeSelectionFilter(ISelectionFilter):
     def AllowElement(self, elem):
         # Allow any element that has a type
         return _has_type(elem)
@@ -89,11 +127,11 @@ def get_element():
 
     # Otherwise prompt for selection
     try:
-        with forms.WarningBar(title="Select an element to duplicate its type"):
+        with forms.WarningBar(title="Select an element to inspect"):
             ref = uidoc.Selection.PickObject(
                 ObjectType.Element,
                 TypeSelectionFilter(),
-                "Select an element to duplicate its type"
+                "Select an element to inspect its family and type"
             )
         elem = doc.GetElement(ref.ElementId)
         if _has_type(elem):
@@ -103,6 +141,8 @@ def get_element():
         return None
 
     return None
+
+#Inspecting 
 
 element = get_element()
 if not element:
@@ -114,11 +154,9 @@ if not element:
 
 type_id = element.GetTypeId()
 source_type = doc.GetElement(type_id) if type_id else None
-
 if not source_type:
     forms.alert("Selected element has no valid type.", ok=True, exitscript=True)
 
-# Get readable type name
 family_name = _get_family_name(source_type)
 type_name = _get_symbol_name(source_type)
 
