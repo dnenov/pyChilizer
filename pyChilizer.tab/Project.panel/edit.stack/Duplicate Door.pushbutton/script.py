@@ -199,11 +199,31 @@ forms.alert(
     ok=True
 )
 
-new_type = _duplicate_type(source_type)
+#Duplicate the type
+try:
+    new_type = _duplicate_type(source_type)
+except Exception as dup_err:
+    logger.error("Failed to duplicate type: {}".format(dup_err))
+    forms.alert(
+        "Could not duplicate the selected element type.\n"
+        "Details: {}".format(dup_err),
+        ok=True,
+        exitscript=True
+    )
+    new_type = None
 
-forms.alert(
-    "Duplicated type created:\n'{}'".format(
-        _get_symbol_name(new_type)
-    ),
-    ok=True
-)
+if not new_type:
+    forms.alert("Could not prepare new type.", ok=True, exitscript=True)
+
+#change the selected element to use the new duplicated type
+try:
+    _change_element_type(element, new_type)
+except Exception as err:
+    logger.error("Could not change element type: {}".format(err))
+    forms.alert(
+        "Could not change the element to the new type.\n"
+        "Details: {}".format(err),
+        ok=True,
+        exitscript=True
+    )
+
