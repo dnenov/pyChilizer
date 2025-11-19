@@ -119,6 +119,19 @@ def _duplicate_type(source_type):
     return new_type
 
 
+def _change_element_type(elem, new_type):
+    """Change the selected element instance to use the new duplicated type."""
+    with DB.Transaction(doc, "Change Element Type") as t:
+        t.Start()
+        elem.ChangeTypeId(new_type.Id)
+        t.Commit()
+
+    logger.info(
+        "Changed element {} to use type '{}'".format(
+            elem.Id, _get_symbol_name(new_type)
+        )
+    )
+
 
 # SELECTION HELPERS
 
