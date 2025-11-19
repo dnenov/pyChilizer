@@ -88,6 +88,37 @@ def _get_family_name(element_type):
 
     return "Unknown Family"
 
+def _duplicate_type(source_type):
+    """Duplicate the type of the selected element."""
+    type_name = _get_symbol_name(source_type)
+    default_name = "{} Copy".format(type_name)
+
+    # Ask user for the new type name (can accept the default)
+    new_name = forms.ask_for_string(
+        default=default_name,
+        prompt="Provide a name for the new type (leave blank to use the default)."
+    )
+
+    if not new_name:
+        new_name = default_name
+
+    # Duplicate inside a transaction
+    with DB.Transaction(doc, "Duplicate Type") as t:
+        t.Start()
+        duplicated = source_type.Duplicate(new_name)
+
+        # Some APIs return ElementId, some return the element itself
+        if isinstance(duplicated, DB.ElementId):
+            new_type = doc.GetElement(duplicated)
+        else:
+            new_type = duplicated
+
+        t.Commit()
+
+    logger.info("Duplicated type '{}' -> '{}'".format(type_name, _get_symbol_name(new_type)))
+    return new_type
+
+
 
 # SELECTION HELPERS
 
