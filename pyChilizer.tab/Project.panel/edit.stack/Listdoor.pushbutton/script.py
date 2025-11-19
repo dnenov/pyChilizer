@@ -57,3 +57,42 @@ class ViewOption(forms.TemplateListItem):
         except:
             vt_name = "View"
         return "{} [{}]".format(self.item.Name, vt_name)
+
+        def categorize_selected_views(selected_views):
+    """
+    Split selected views into:
+    - plan_like_views
+    - elev_like_views
+    based on ViewType.
+    """
+
+    plan_types = {
+        DB.ViewType.FloorPlan,
+        DB.ViewType.CeilingPlan,
+        DB.ViewType.EngineeringPlan,
+        DB.ViewType.AreaPlan
+    }
+
+    elev_types = {
+        DB.ViewType.Elevation,
+        DB.ViewType.Section,
+        DB.ViewType.Detail,
+        DB.ViewType.DraftingView,
+        DB.ViewType.ThreeD
+    }
+
+    plan_views = []
+    elev_views = []
+
+    for v in selected_views:
+        try:
+            vt = v.ViewType
+        except:
+            continue
+
+        if vt in plan_types:
+            plan_views.append(v)
+        elif vt in elev_types:
+            elev_views.append(v)
+
+    return plan_views, elev_views
