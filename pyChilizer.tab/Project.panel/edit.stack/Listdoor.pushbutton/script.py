@@ -58,7 +58,7 @@ class ViewOption(forms.TemplateListItem):
             vt_name = "View"
         return "{} [{}]".format(self.item.Name, vt_name)
 
-        def categorize_selected_views(selected_views):
+def categorize_selected_views(selected_views):
     """
     Split selected views into:
     - plan_like_views
