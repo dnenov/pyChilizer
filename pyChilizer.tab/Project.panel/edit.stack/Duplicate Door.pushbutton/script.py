@@ -12,8 +12,6 @@ logger = script.get_logger()
 
 
 
-
-
 def _has_type(elem):
     """Return True if the element has a valid type id."""
     if not elem:
@@ -121,12 +119,12 @@ if not source_type:
     forms.alert("Selected element has no valid type.", ok=True, exitscript=True)
 
 # Get readable type name
+family_name = _get_family_name(source_type)
 type_name = _get_symbol_name(source_type)
 
-# Show element & type information
 forms.alert(
-    "You selected element ID {}.\nIts current type is:\n'{}'".format(
-        str(element.Id),     # FIXED: no more .IntegerValue
+    "You selected:\nFamily: '{}'\nType:   '{}'".format(
+        family_name,
         type_name
     ),
     ok=True
