@@ -42,3 +42,18 @@ def get_all_potential_views():
 
     return views
 
+class ViewOption(forms.TemplateListItem):
+    """Wrapper for selecting views from a grouped list."""
+
+    def __init__(self, view):
+        super(ViewOption, self).__init__(view)
+
+    @property
+    def name(self):
+        # What the user sees in the list, e.g.:
+        # "Level 01 - [FloorPlan]"
+        try:
+            vt_name = str(self.item.ViewType)
+        except:
+            vt_name = "View"
+        return "{} [{}]".format(self.item.Name, vt_name)
