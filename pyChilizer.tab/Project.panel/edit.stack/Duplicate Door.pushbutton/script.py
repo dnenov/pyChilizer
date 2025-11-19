@@ -34,6 +34,27 @@ def _get_symbol_name(symbol):
     if not symbol:
         return "Type"
 
+    # Try standard type name parameter
+    param = symbol.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM)
+    if param:
+        try:
+            name_val = param.AsString()
+            if name_val and name_val.lower() != "none":
+                return name_val
+        except Exception:
+            pass
+
+    # Fallback to Name property
+    try:
+        name_val = symbol.Name
+        if name_val and name_val.lower() != "none":
+            return name_val
+    except AttributeError:
+        pass
+
+    # Final fallback
+    return "Unnamed Type"
+
 #class TypeSelectionFilter(ISelectionFilter):
     def AllowElement(self, elem):
         # Allow any element that has a type
