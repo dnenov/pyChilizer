@@ -198,3 +198,12 @@ forms.alert(
     ),
     ok=True
 )
+
+new_type = _duplicate_type(source_type)
+
+forms.alert(
+    "Duplicated type created:\n'{}'".format(
+        _get_symbol_name(new_type)
+    ),
+    ok=True
+)
