@@ -95,12 +95,18 @@ if not element:
 
 type_id = element.GetTypeId()
 source_type = doc.GetElement(type_id) if type_id else None
+
 if not source_type:
     forms.alert("Selected element has no valid type.", ok=True, exitscript=True)
 
+# Get readable type name
 type_name = _get_symbol_name(source_type)
 
+# Show element & type information
 forms.alert(
-    "You selected element ID {}.\nIts current type is:\n'{}'".format(element.Id.IntegerValue, type_name),
+    "You selected element ID {}.\nIts current type is:\n'{}'".format(
+        str(element.Id),     # FIXED: no more .IntegerValue
+        type_name
+    ),
     ok=True
 )
