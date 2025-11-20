@@ -213,22 +213,36 @@ def get_tagged_door_ids_in_views(views, door_ids):
     return tagged_door_ids
 
 
-# Instead of:
-# plan_views = get_views_of_type(...)
-# elev_views = get_views_of_type(...)
+def safe_name(element, default=""):
+    """
+    Safely get the name of an element, returning default if unavailable.
+    """
+    if not element:
+        return default
+    try:
+        name = element.Name
+        return name if name else default
+    except:
+        return default
 
-plan_views, elev_views = select_views()
-if plan_views or elev_views:  # only proceed if we have valid views
-    doors = get_all_doors()
-    door_ids = set(d.Id for d in doors)
 
-    doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
-    doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids) if elev_views else set()
+def get_mark_value(door):
+    """
+    Get the Mark parameter value from a door element.
+    """
+    try:
+        mark_param = door.get_Parameter(DB.BuiltInParameter.DOOR_NUMBER)
+        if mark_param and mark_param.HasValue:
+            return mark_param.AsString()
+    except:
+        pass
+    return ""
+
 
 def run():
     # Main entry point when I click the pychilizer button.
 
-    doors = get_doors()
+    doors = get_all_doors()
     if not doors:
         output.print_md("No doors found in the model.")
         return
@@ -236,15 +250,16 @@ def run():
     # store all door ids in a set so I can test quickly.
     door_ids = set(d.Id for d in doors)
 
-    # I get all floor plans and all elevations.
-    plan_views = get_views_of_type(DB.ViewType.FloorPlan)
-    elev_views = get_views_of_type(DB.ViewType.Elevation)
+    # Get selected views from user
+    plan_views, elev_views = select_views()
+    if not plan_views and not elev_views:
+        return  # User cancelled or no valid views
 
     # For plans: which doors have at least one tag in any plan view.
-    doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids)
+    doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
 
     # For elevations: which doors have at least one tag in any elevation view.
-    doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids)
+    doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids) if elev_views else set()
 
     all_rows = []
     inconsistent_rows = []
@@ -256,8 +271,14 @@ def run():
         type_elem = doc.GetElement(door.GetTypeId())
         type_name = safe_name(type_elem, "No Type")
 
-        level_elem = doc.GetElement(door.LevelId)
-        level_name = safe_name(level_elem, "")
+        level_name = ""
+        try:
+            level_id = door.LevelId
+            if level_id and level_id != DB.ElementId.InvalidElementId:
+                level_elem = doc.GetElement(level_id)
+                level_name = safe_name(level_elem, "")
+        except:
+            pass
 
         mark_val = get_mark_value(door)
 
