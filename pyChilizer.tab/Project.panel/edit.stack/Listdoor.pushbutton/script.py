@@ -310,13 +310,23 @@ def run():
             inconsistent_rows.append(row)
 
     # I print the results in the pyRevit output window.
-    output.print_md("## Door tag presence in plans and elevations")
+    output.print_md("## Door tag presence in selected views")
+    output.print_md("_\"Plan views\" = plan-like views you selected (e.g. plans, area plans)._")
+    output.print_md("_\"Elevation/section views\" = elevation/section-like views you selected (elevations, sections, 3D, details, etc.)._")
 
     output.print_md("### Doors with inconsistent tagging")
     if inconsistent_rows:
         output.print_table(
             table_data=inconsistent_rows,
-            columns=["Door Id", "Type", "Level", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
+            columns=[
+                "Door Id",
+                "Type",
+                "View",                         
+                "Mark",
+                "Tagged in plan views",         # was 'Tagged in plans'
+                "Tagged in elevation/section views",  # was 'Tagged in elevations'
+                "Status"
+            ]
         )
     else:
         output.print_md("No inconsistencies found.")
@@ -324,10 +334,19 @@ def run():
     output.print_md("### All doors summary")
     output.print_table(
         table_data=all_rows,
-        columns=["Door Id", "Type", "Level", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
+        columns=[
+            "Door Id",
+            "Type",
+            "View",                         
+            "Mark",
+            "Tagged in plan views",
+            "Tagged in elevation/section views",
+            "Status"
+        ]
     )
 
     logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
+
 
 
 run()
