@@ -308,16 +308,6 @@ def run():
         type_elem = doc.GetElement(door.GetTypeId())
         type_name = safe_name(type_elem, "No Type")
 
-        # Currently using the door's level as "View" label
-        level_name = ""
-        try:
-            level_id = door.LevelId
-            if level_id and level_id != DB.ElementId.InvalidElementId:
-                level_elem = doc.GetElement(level_id)
-                level_name = safe_name(level_elem, "")
-        except:
-            pass
-
         mark_val = get_mark_value(door)
 
         # For each selected view: is this door tagged in that view?
@@ -344,7 +334,6 @@ def run():
         row = [
             id_link,
             type_name,
-            level_name,  # shown under "View" column header
             mark_val
         ] + per_view_yesno + [status]
 
@@ -355,7 +344,7 @@ def run():
     # Build dynamic column names: one per selected view
     view_column_names = [v.Name for v in selected_views]
 
-    base_columns = ["Door Id", "Type", "View", "Mark"]
+    base_columns = ["Door Id", "Type", "Mark"]
     final_columns = base_columns + view_column_names + ["Status"]
 
     # I print the results in the pyRevit output window.
@@ -380,6 +369,7 @@ def run():
     )
 
     logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
+
 
 
 run()
