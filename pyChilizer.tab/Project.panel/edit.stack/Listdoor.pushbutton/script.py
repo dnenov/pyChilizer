@@ -98,7 +98,7 @@ def categorize_selected_views(selected_views):
     return plan_views, elev_views
 
 
-    def select_views():
+def select_views():
     """
     Show a grouped menu (by ViewType) with all potential views.
     User can tick any combination.
