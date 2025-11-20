@@ -309,10 +309,17 @@ def run():
         if status == "Inconsistent":
             inconsistent_rows.append(row)
 
-    # I print the results in the pyRevit output window.
+        # I print the results in the pyRevit output window.
     output.print_md("## Door tag presence in selected views")
-    output.print_md("_\"Plan views\" = plan-like views you selected (e.g. plans, area plans)._")
-    output.print_md("_\"Elevation/section views\" = elevation/section-like views you selected (elevations, sections, 3D, details, etc.)._")
+
+    # Show which views were actually checked
+    plan_view_names = ", ".join([v.Name for v in plan_views]) if plan_views else "None"
+    elev_view_names = ", ".join([v.Name for v in elev_views]) if elev_views else "None"
+
+    output.print_md("**Plan views checked:** {}".format(plan_view_names))
+    output.print_md("**Elevation/section views checked:** {}".format(elev_view_names))
+    output.print_md("_Plan views = plan-like views you selected (e.g. floor plans, RCPs, area plans)._")
+    output.print_md("_Elevation/section views = elevation/section-like views you selected (elevations, sections, 3D, details, etc.)._")
 
     output.print_md("### Doors with inconsistent tagging")
     if inconsistent_rows:
@@ -321,10 +328,10 @@ def run():
             columns=[
                 "Door Id",
                 "Type",
-                "View",                         
+                "View",                         # was 'Level'
                 "Mark",
-                "Tagged in plan views",         # was 'Tagged in plans'
-                "Tagged in elevation/section views",  # was 'Tagged in elevations'
+                "Tagged in plan views",
+                "Tagged in elevation/section views",
                 "Status"
             ]
         )
@@ -337,7 +344,7 @@ def run():
         columns=[
             "Door Id",
             "Type",
-            "View",                         
+            "View",
             "Mark",
             "Tagged in plan views",
             "Tagged in elevation/section views",
@@ -346,6 +353,7 @@ def run():
     )
 
     logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
+
 
 
 
