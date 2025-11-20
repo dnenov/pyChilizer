@@ -224,3 +224,89 @@ if plan_views or elev_views:  # only proceed if we have valid views
 
     doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
     doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids) if elev_views else set()
+
+def run():
+    # Main entry point when I click the pychilizer button.
+
+    doors = get_doors()
+    if not doors:
+        output.print_md("No doors found in the model.")
+        return
+
+    # store all door ids in a set so I can test quickly.
+    door_ids = set(d.Id for d in doors)
+
+    # I get all floor plans and all elevations.
+    plan_views = get_views_of_type(DB.ViewType.FloorPlan)
+    elev_views = get_views_of_type(DB.ViewType.Elevation)
+
+    # For plans: which doors have at least one tag in any plan view.
+    doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids)
+
+    # For elevations: which doors have at least one tag in any elevation view.
+    doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids)
+
+    all_rows = []
+    inconsistent_rows = []
+
+    for door in doors:
+        did = door.Id
+        id_link = output.linkify(did)
+
+        type_elem = doc.GetElement(door.GetTypeId())
+        type_name = safe_name(type_elem, "No Type")
+
+        level_elem = doc.GetElement(door.LevelId)
+        level_name = safe_name(level_elem, "")
+
+        mark_val = get_mark_value(door)
+
+        plan_tagged = did in doors_tagged_in_plans
+        elev_tagged = did in doors_tagged_in_elevs
+
+        plan_text = "Yes" if plan_tagged else "No"
+        elev_text = "Yes" if elev_tagged else "No"
+
+        # If both sides match (both tagged or both not tagged), I say OK.
+        # If one is tagged and the other is not, it says Inconsistent.
+        if plan_tagged == elev_tagged:
+            status = "OK"
+        else:
+            status = "Inconsistent"
+
+        row = [
+            id_link,
+            type_name,
+            level_name,
+            mark_val,
+            plan_text,
+            elev_text,
+            status
+        ]
+
+        all_rows.append(row)
+        if status == "Inconsistent":
+            inconsistent_rows.append(row)
+
+    # I print the results in the pyRevit output window.
+    output.print_md("## Door tag presence in plans and elevations")
+
+    output.print_md("### Doors with inconsistent tagging")
+    if inconsistent_rows:
+        output.print_table(
+            table_data=inconsistent_rows,
+            columns=["Door Id", "Type", "Level", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
+        )
+    else:
+        output.print_md("No inconsistencies found.")
+
+    output.print_md("### All doors summary")
+    output.print_table(
+        table_data=all_rows,
+        columns=["Door Id", "Type", "Level", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
+    )
+
+    logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
+
+
+run()
