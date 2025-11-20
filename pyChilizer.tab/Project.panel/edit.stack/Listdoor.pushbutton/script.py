@@ -21,7 +21,7 @@ def get_all_potential_views():
         DB.ViewType.Report,
         DB.ViewType.Internal,
         DB.ViewType.Undefined,
-        DB.ViewType.Legend  
+        DB.ViewType.Legend
     }
 
     views = []
@@ -42,6 +42,7 @@ def get_all_potential_views():
 
     return views
 
+
 class ViewOption(forms.TemplateListItem):
     """Wrapper for selecting views from a grouped list."""
 
@@ -51,12 +52,13 @@ class ViewOption(forms.TemplateListItem):
     @property
     def name(self):
         # What the user sees in the list, e.g.:
-        # "Level 01 - [FloorPlan]"
+        # "Level 01 [FloorPlan]"
         try:
             vt_name = str(self.item.ViewType)
         except:
             vt_name = "View"
         return "{} [{}]".format(self.item.Name, vt_name)
+
 
 def categorize_selected_views(selected_views):
     """
@@ -111,7 +113,7 @@ def select_views():
                     title="Door Tag Checker")
         return [], []
 
-    # Group by view type 
+    # Group by view type
     grouped = {}
     for v in all_potential_views:
         try:
@@ -165,52 +167,59 @@ def get_all_doors():
     return list(doors)
 
 
-def get_tagged_door_ids_in_views(views, door_ids):
+def get_tagged_door_ids_by_view(views, door_ids):
     """
-    Get set of door IDs that are tagged in the given views.
-    
+    For each view in 'views', return a mapping:
+        { view : set(door_ids tagged in that view) }
+
     Args:
-        views: List of View objects to check
-        door_ids: Set of door ElementIds to filter (only return IDs in this set)
-    
+        views: list[DB.View] to inspect
+        door_ids: set[DB.ElementId] of doors we care about
+
     Returns:
-        Set of door ElementIds that are tagged in the views
+        dict[DB.View, set[DB.ElementId]]
     """
-    tagged_door_ids = set()
-    
+    tagged_by_view = {}
+
     for view in views:
+        view_tagged_ids = set()
         try:
-            # Get all door tags in this view
             tags = DB.FilteredElementCollector(doc, view.Id) \
                      .OfCategory(DB.BuiltInCategory.OST_DoorTags) \
                      .ToElements()
-            
+
             for tag in tags:
+                tagged_id = None
+
                 try:
-                    # Get the tagged element ID
+                    # Different Revit versions expose different properties / types
                     if hasattr(tag, 'TaggedElementId'):
-                        tagged_id = tag.TaggedElementId
+                        teid = tag.TaggedElementId
+                        # In newer Revit, this may be a LinkElementId
+                        if hasattr(teid, 'ElementId'):
+                            tagged_id = teid.ElementId
+                        else:
+                            tagged_id = teid
                     elif hasattr(tag, 'TaggedLocalElementId'):
                         tagged_id = tag.TaggedLocalElementId
                     else:
-                        # Try to get from the tag's reference
+                        # Fallback: try references
                         refs = tag.GetTaggedReferences()
                         if refs and len(refs) > 0:
                             tagged_id = refs[0].ElementId
-                        else:
-                            continue
-                    
-                    # Only include if it's in our door_ids set
-                    if tagged_id in door_ids:
-                        tagged_door_ids.add(tagged_id)
                 except:
-                    # Skip tags that can't be processed
-                    continue
+                    tagged_id = None
+
+                # Only keep door IDs we care about
+                if tagged_id and tagged_id in door_ids:
+                    view_tagged_ids.add(tagged_id)
         except:
-            # Skip views that can't be processed
-            continue
-    
-    return tagged_door_ids
+            # if the view can't be processed, just skip it
+            pass
+
+        tagged_by_view[view] = view_tagged_ids
+
+    return tagged_by_view
 
 
 def safe_name(element, default=""):
@@ -271,7 +280,7 @@ def run():
         type_elem = doc.GetElement(door.GetTypeId())
         type_name = safe_name(type_elem, "No Type")
 
-        # I currently use the door's level as "View" ,I just rename the column label later.
+        # Currently using the door's level as "View"
         level_name = ""
         try:
             level_id = door.LevelId
@@ -324,7 +333,7 @@ def run():
     # I print the results in the pyRevit output window.
     output.print_md("## Door tag presence in selected views")
 
-    # Optional: quick reminder of which views are included
+    # Quick reminder of which views are included
     output.print_md("Checked views: " + ", ".join(view_column_names))
 
     output.print_md("### Doors with inconsistent tagging")
@@ -343,7 +352,6 @@ def run():
     )
 
     logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
-
 
 
 run()
