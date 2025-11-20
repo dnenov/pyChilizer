@@ -96,3 +96,59 @@ def categorize_selected_views(selected_views):
             elev_views.append(v)
 
     return plan_views, elev_views
+
+
+    def select_views():
+    """
+    Show a grouped menu (by ViewType) with all potential views.
+    User can tick any combination.
+    """
+
+    all_potential_views = get_all_potential_views()
+
+    if not all_potential_views:
+        forms.alert("No suitable views found in this model.",
+                    title="Door Tag Checker")
+        return [], []
+
+    # Group by view type 
+    grouped = {}
+    for v in all_potential_views:
+        try:
+            group_name = str(v.ViewType)
+        except:
+            group_name = "Other"
+
+        if group_name not in grouped:
+            grouped[group_name] = []
+
+        grouped[group_name].append(ViewOption(v))
+
+    # Show UI
+    selected_views_raw = forms.SelectFromList.show(
+        grouped,
+        title="Select Views to Check Door Tags",
+        button_name="Check Doors",
+        multiselect=True
+    )
+
+    if not selected_views_raw:
+        forms.alert("No views selected.", title="Door Tag Checker")
+        return [], []
+
+    # Normalise returned objects
+    selected_views = []
+    for x in selected_views_raw:
+        if isinstance(x, DB.View):
+            selected_views.append(x)
+        elif hasattr(x, 'item') and isinstance(x.item, DB.View):
+            selected_views.append(x.item)
+
+    # Categorise
+    plan_views, elev_views = categorize_selected_views(selected_views)
+
+    if not plan_views and not elev_views:
+        forms.alert("Selected views are not plan/elevation types.", title="Door Tag Checker")
+        return [], []
+
+    return plan_views, elev_views
