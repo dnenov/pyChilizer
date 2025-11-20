@@ -298,7 +298,7 @@ def run():
         row = [
             id_link,
             type_name,
-            view_name,
+            level_name,
             mark_val,
             plan_text,
             elev_text,
@@ -316,7 +316,7 @@ def run():
     if inconsistent_rows:
         output.print_table(
             table_data=inconsistent_rows,
-            columns=["Door Id", "Type", "view", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
+            columns=["Door Id", "Type", "Level", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
         )
     else:
         output.print_md("No inconsistencies found.")
@@ -324,7 +324,7 @@ def run():
     output.print_md("### All doors summary")
     output.print_table(
         table_data=all_rows,
-        columns=["Door Id", "Type", "View", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
+        columns=["Door Id", "Type", "Level", "Mark", "Tagged in plans", "Tagged in elevations", "Status"]
     )
 
     logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
