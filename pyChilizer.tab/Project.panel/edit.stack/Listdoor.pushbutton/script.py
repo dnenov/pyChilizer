@@ -7,6 +7,7 @@ from pyrevit import revit, DB, script, forms
 doc = revit.doc
 logger = script.get_logger()
 output = script.get_output()
+config = script.get_config()   # used to remember last-selected views
 
 
 def get_all_potential_views():
@@ -104,6 +105,7 @@ def select_views():
     """
     Show a grouped menu (by ViewType) with all potential views.
     User can tick any combination.
+    Remembers last selection and pre-selects those views.
     """
 
     all_potential_views = get_all_potential_views()
@@ -113,9 +115,20 @@ def select_views():
                     title="Door Tag Checker")
         return [], []
 
-    # Group by view type
+    # Load last selection (stored as list of IntegerValue IDs)
+    try:
+        last_ids = set(getattr(config, "last_view_ids", []) or [])
+    except:
+        last_ids = set()
+
     grouped = {}
+    all_options = []
+
+    # Build grouped dict and keep a flat list of all options
     for v in all_potential_views:
+        opt = ViewOption(v)
+        all_options.append(opt)
+
         try:
             group_name = str(v.ViewType)
         except:
@@ -124,21 +137,32 @@ def select_views():
         if group_name not in grouped:
             grouped[group_name] = []
 
-        grouped[group_name].append(ViewOption(v))
+        grouped[group_name].append(opt)
+
+    # Build default (pre-selected) options from last_ids
+    default_opts = []
+    if last_ids:
+        for opt in all_options:
+            try:
+                if opt.item.Id.IntegerValue in last_ids:
+                    default_opts.append(opt)
+            except:
+                continue
 
     # Show UI
     selected_views_raw = forms.SelectFromList.show(
         grouped,
         title="Select Views to Check Door Tags",
         button_name="Check Doors",
-        multiselect=True
+        multiselect=True,
+        default=default_opts if default_opts else None
     )
 
     if not selected_views_raw:
         forms.alert("No views selected.", title="Door Tag Checker")
         return [], []
 
-    # Normalise returned objects
+    # Normalise returned objects into DB.View
     selected_views = []
     for x in selected_views_raw:
         if isinstance(x, DB.View):
@@ -146,7 +170,18 @@ def select_views():
         elif hasattr(x, 'item') and isinstance(x.item, DB.View):
             selected_views.append(x.item)
 
-    # Categorise
+    if not selected_views:
+        forms.alert("No valid views selected.", title="Door Tag Checker")
+        return [], []
+
+    # Persist current selection for next run
+    try:
+        config.last_view_ids = [v.Id.IntegerValue for v in selected_views]
+        script.save_config()
+    except:
+        pass
+
+    # Categorise into plan-like and elev/section-like
     plan_views, elev_views = categorize_selected_views(selected_views)
 
     if not plan_views and not elev_views:
@@ -171,13 +206,6 @@ def get_tagged_door_ids_by_view(views, door_ids):
     """
     For each view in 'views', return a mapping:
         { view : set(door_ids tagged in that view) }
-
-    Args:
-        views: list[DB.View] to inspect
-        door_ids: set[DB.ElementId] of doors we care about
-
-    Returns:
-        dict[DB.View, set[DB.ElementId]]
     """
     tagged_by_view = {}
 
@@ -280,7 +308,7 @@ def run():
         type_elem = doc.GetElement(door.GetTypeId())
         type_name = safe_name(type_elem, "No Type")
 
-        # Currently using the door's level as "View"
+        # Currently using the door's level as "View" label
         level_name = ""
         try:
             level_id = door.LevelId
