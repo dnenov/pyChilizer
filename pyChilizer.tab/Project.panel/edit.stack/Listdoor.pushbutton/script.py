@@ -160,7 +160,7 @@ def select_views():
 plan_views, elev_views = select_views()
 if not plan_views and not elev_views:
     return  # user cancelled or no valid views
-    
+
 
 door_ids = set(d.Id for d in doors)
 
