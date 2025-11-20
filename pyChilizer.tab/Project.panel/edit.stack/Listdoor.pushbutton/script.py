@@ -255,11 +255,11 @@ def run():
     if not plan_views and not elev_views:
         return  # User cancelled or no valid views
 
-    # For plans: which doors have at least one tag in any plan view.
-    doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
+    # Combine all selected views into one ordered list
+    selected_views = list(plan_views) + list(elev_views)
 
-    # For elevations: which doors have at least one tag in any elevation view.
-    doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids) if elev_views else set()
+    # For each view, get which doors are tagged there
+    tagged_by_view = get_tagged_door_ids_by_view(selected_views, door_ids)
 
     all_rows = []
     inconsistent_rows = []
@@ -271,6 +271,7 @@ def run():
         type_elem = doc.GetElement(door.GetTypeId())
         type_name = safe_name(type_elem, "No Type")
 
+        # I currently use the door's level as "View" ,I just rename the column label later.
         level_name = ""
         try:
             level_id = door.LevelId
@@ -282,15 +283,23 @@ def run():
 
         mark_val = get_mark_value(door)
 
-        plan_tagged = did in doors_tagged_in_plans
-        elev_tagged = did in doors_tagged_in_elevs
+        # For each selected view: is this door tagged in that view?
+        per_view_yesno = []
+        yes_count = 0
+        no_count = 0
 
-        plan_text = "Yes" if plan_tagged else "No"
-        elev_text = "Yes" if elev_tagged else "No"
+        for v in selected_views:
+            tagged_ids_for_view = tagged_by_view.get(v, set())
+            if did in tagged_ids_for_view:
+                per_view_yesno.append("Yes")
+                yes_count += 1
+            else:
+                per_view_yesno.append("No")
+                no_count += 1
 
-        # If both sides match (both tagged or both not tagged), I say OK.
-        # If one is tagged and the other is not, it says Inconsistent.
-        if plan_tagged == elev_tagged:
+        # Status: OK if door is either tagged in ALL or NONE of the selected views
+        # Inconsistent if it's a mix of Yes and No.
+        if yes_count == 0 or no_count == 0:
             status = "OK"
         else:
             status = "Inconsistent"
@@ -298,42 +307,31 @@ def run():
         row = [
             id_link,
             type_name,
-            level_name,
-            mark_val,
-            plan_text,
-            elev_text,
-            status
-        ]
+            level_name,  # shown under "View" column header
+            mark_val
+        ] + per_view_yesno + [status]
 
         all_rows.append(row)
         if status == "Inconsistent":
             inconsistent_rows.append(row)
 
-        # I print the results in the pyRevit output window.
+    # Build dynamic column names: one per selected view
+    view_column_names = [v.Name for v in selected_views]
+
+    base_columns = ["Door Id", "Type", "View", "Mark"]
+    final_columns = base_columns + view_column_names + ["Status"]
+
+    # I print the results in the pyRevit output window.
     output.print_md("## Door tag presence in selected views")
 
-    # Show which views were actually checked
-    plan_view_names = ", ".join([v.Name for v in plan_views]) if plan_views else "None"
-    elev_view_names = ", ".join([v.Name for v in elev_views]) if elev_views else "None"
-
-    output.print_md("**Plan views checked:** {}".format(plan_view_names))
-    output.print_md("**Elevation/section views checked:** {}".format(elev_view_names))
-    output.print_md("_Plan views = plan-like views you selected (e.g. floor plans, RCPs, area plans)._")
-    output.print_md("_Elevation/section views = elevation/section-like views you selected (elevations, sections, 3D, details, etc.)._")
+    # Optional: quick reminder of which views are included
+    output.print_md("Checked views: " + ", ".join(view_column_names))
 
     output.print_md("### Doors with inconsistent tagging")
     if inconsistent_rows:
         output.print_table(
             table_data=inconsistent_rows,
-            columns=[
-                "Door Id",
-                "Type",
-                "View",                         # was 'Level'
-                "Mark",
-                "Tagged in plan views",
-                "Tagged in elevation/section views",
-                "Status"
-            ]
+            columns=final_columns
         )
     else:
         output.print_md("No inconsistencies found.")
@@ -341,19 +339,10 @@ def run():
     output.print_md("### All doors summary")
     output.print_table(
         table_data=all_rows,
-        columns=[
-            "Door Id",
-            "Type",
-            "View",
-            "Mark",
-            "Tagged in plan views",
-            "Tagged in elevation/section views",
-            "Status"
-        ]
+        columns=final_columns
     )
 
     logger.info("Finished checking door tags for " + str(len(all_rows)) + " doors.")
-
 
 
 
