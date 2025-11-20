@@ -158,11 +158,8 @@ def select_views():
 # elev_views = get_views_of_type(...)
 
 plan_views, elev_views = select_views()
-if not plan_views and not elev_views:
-    return  # user cancelled or no valid views
+if plan_views or elev_views:  # only proceed if we have valid views
+    door_ids = set(d.Id for d in doors)
 
-
-door_ids = set(d.Id for d in doors)
-
-doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
-doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids) if elev_views else set()
+    doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
+    doors_tagged_in_elevs = get_tagged_door_ids_in_views(elev_views, door_ids) if elev_views else set()
