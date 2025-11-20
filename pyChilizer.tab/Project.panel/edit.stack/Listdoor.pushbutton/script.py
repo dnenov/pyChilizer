@@ -153,12 +153,73 @@ def select_views():
 
     return plan_views, elev_views
 
+
+def get_all_doors():
+    """
+    Collect all door instances from the model.
+    """
+    doors = DB.FilteredElementCollector(doc) \
+              .OfCategory(DB.BuiltInCategory.OST_Doors) \
+              .WhereElementIsNotElementType() \
+              .ToElements()
+    return list(doors)
+
+
+def get_tagged_door_ids_in_views(views, door_ids):
+    """
+    Get set of door IDs that are tagged in the given views.
+    
+    Args:
+        views: List of View objects to check
+        door_ids: Set of door ElementIds to filter (only return IDs in this set)
+    
+    Returns:
+        Set of door ElementIds that are tagged in the views
+    """
+    tagged_door_ids = set()
+    
+    for view in views:
+        try:
+            # Get all door tags in this view
+            tags = DB.FilteredElementCollector(doc, view.Id) \
+                     .OfCategory(DB.BuiltInCategory.OST_DoorTags) \
+                     .ToElements()
+            
+            for tag in tags:
+                try:
+                    # Get the tagged element ID
+                    if hasattr(tag, 'TaggedElementId'):
+                        tagged_id = tag.TaggedElementId
+                    elif hasattr(tag, 'TaggedLocalElementId'):
+                        tagged_id = tag.TaggedLocalElementId
+                    else:
+                        # Try to get from the tag's reference
+                        refs = tag.GetTaggedReferences()
+                        if refs and len(refs) > 0:
+                            tagged_id = refs[0].ElementId
+                        else:
+                            continue
+                    
+                    # Only include if it's in our door_ids set
+                    if tagged_id in door_ids:
+                        tagged_door_ids.add(tagged_id)
+                except:
+                    # Skip tags that can't be processed
+                    continue
+        except:
+            # Skip views that can't be processed
+            continue
+    
+    return tagged_door_ids
+
+
 # Instead of:
 # plan_views = get_views_of_type(...)
 # elev_views = get_views_of_type(...)
 
 plan_views, elev_views = select_views()
 if plan_views or elev_views:  # only proceed if we have valid views
+    doors = get_all_doors()
     door_ids = set(d.Id for d in doors)
 
     doors_tagged_in_plans = get_tagged_door_ids_in_views(plan_views, door_ids) if plan_views else set()
