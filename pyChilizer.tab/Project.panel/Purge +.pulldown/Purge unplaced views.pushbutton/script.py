@@ -27,13 +27,14 @@ else:
         with revit.Transaction("Delete unplaced Views"):
             try:
                 unplaced_names = [] # Get sheet names  
-                try:
-                    for view in unplaced_views:
+                for view in unplaced_views:
+                    try:
                         name = doc.GetElement(view).Name
                         doc.Delete(view)  # Delete the sheets 
                         unplaced_names.append(name)
-                except:
-                    pass
+                    except Exception as e:
+                        print("Error deleting views")
+                        print(e)
                 # print result
                 print("VIEWS DELETED:\n")
                 for s in unplaced_names:
