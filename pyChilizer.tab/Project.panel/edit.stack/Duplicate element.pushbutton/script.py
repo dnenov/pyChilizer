@@ -134,7 +134,6 @@ def _change_element_type(elem, new_type):
 
 
 # SELECTION HELPERS
-
 class TypeSelectionFilter(ISelectionFilter):
     def AllowElement(self, elem):
         # Allow any element that has a type
@@ -187,7 +186,6 @@ def get_element():
     return None
 
 #Inspecting 
-
 element = get_element()
 if not element:
     forms.alert(
