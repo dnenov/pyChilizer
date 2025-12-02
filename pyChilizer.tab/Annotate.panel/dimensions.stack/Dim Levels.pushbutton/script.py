@@ -10,11 +10,14 @@ from Autodesk.Revit.UI import *
 
 from pyrevit import revit, DB
 from pyrevit import forms
+from pyrevit.compat import get_elementid_value_func
 
 from Autodesk.Revit.UI.Selection import *
 from Autodesk.Revit.DB import XYZ
 
 from pyrevit import revit, DB
+
+get_elementid_value = get_elementid_value_func()
 
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
@@ -22,7 +25,7 @@ class CustomISelectionFilter(ISelectionFilter):
         self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Id.IntegerValue == int(self.cat):
+        if get_elementid_value(e.Category.Id) == int(self.cat):
             return True
         else:
             return False
