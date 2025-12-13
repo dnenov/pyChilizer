@@ -207,8 +207,11 @@ with revit.Transaction("Filters by Value", doc):
         else:
             value_name = str(param_value)
         filter_name = param_dict[selected_parameter].replace(SHARED_PARAMETER_LABEL, "") + " - " + value_name
-        # replace forbidden characters:
-        filter_name = filter_name.strip("{}[]:\|?/<>*")
+        # replace forbidden characters (replace all occurrences, not just strip from ends):
+        forbidden_chars = "{}[]:\|?/<>*"
+        for char in forbidden_chars:
+            filter_name = filter_name.replace(char, "")
+        filter_name = filter_name.strip()
         filter_id = None
         # check if the filter with the given name already exists
         filter_exists = database.check_filter_exists(filter_name, doc)
@@ -221,13 +224,26 @@ with revit.Transaction("Filters by Value", doc):
                 override_filters = 1
             else:
                 override_filters = -1
+        
+        # If we're reusing existing filters and one exists, use it
         if override_filters == 1 and filter_exists:
-
             filter_id = filter_exists.Id
+            # Ensure filter is added to view if not already present
+            if not view.GetFilters().Contains(filter_id):
+                view.AddFilter(filter_id)
         else:
-            if filter_exists:
-                # delete filters
-                doc.Delete(filter_exists.Id)
+            # We need to create a new filter (either doesn't exist or user chose not to reuse)
+            if filter_exists and override_filters == -1:
+                # Delete existing filter if user chose not to reuse
+                try:
+                    doc.Delete(filter_exists.Id)
+                    # Re-check if filter still exists after deletion
+                    filter_exists = database.check_filter_exists(filter_name, doc)
+                except:
+                    # If deletion fails, filter still exists - we'll use it below
+                    pass
+            
+            # Create filter rules
             if selected_param_storage_type == "ElementId":
                 equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value)
             elif selected_param_storage_type == "Integer":
@@ -241,9 +257,29 @@ with revit.Transaction("Filters by Value", doc):
                     equals_rule = DB.ParameterFilterRuleFactory.CreateEqualsRule(parameter_id, param_value, True)
             f_rules = List[DB.FilterRule]([equals_rule])
             parameter_filter = database.filter_from_rules(f_rules)
-            new_filter = database.create_filter_by_name_bics(filter_name, chosen_bics, doc)
-            new_filter.SetElementFilter(parameter_filter)
-            filter_id = new_filter.Id
-            # add filter to view
-            view.AddFilter(filter_id)
+            
+            # Check if filter exists before creating (handles cases where deletion didn't work or wasn't attempted)
+            if filter_exists:
+                # If filter exists, use it and update its rules
+                filter_id = filter_exists.Id
+                filter_exists.SetElementFilter(parameter_filter)
+            else:
+                # Create new filter only if it doesn't exist
+                try:
+                    new_filter = database.create_filter_by_name_bics(filter_name, chosen_bics, doc)
+                    new_filter.SetElementFilter(parameter_filter)
+                    filter_id = new_filter.Id
+                except Exception as e:
+                    # If creation fails (e.g., name conflict), check if filter exists now
+                    filter_exists_retry = database.check_filter_exists(filter_name, doc)
+                    if filter_exists_retry:
+                        filter_id = filter_exists_retry.Id
+                        filter_exists_retry.SetElementFilter(parameter_filter)
+                    else:
+                        raise e
+            
+            # Add filter to view if not already present
+            if not view.GetFilters().Contains(filter_id):
+                view.AddFilter(filter_id)
+        
         view.SetFilterOverrides(filter_id, override)
