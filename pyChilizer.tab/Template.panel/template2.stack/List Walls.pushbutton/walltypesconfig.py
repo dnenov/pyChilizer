@@ -2,6 +2,7 @@
 
 
 from pyrevit import script, forms, revit, DB
+from pyrevit.compat import get_elementid_value_func
 from rpw.ui.forms import (FlexForm, Label, ComboBox, CheckBox, TextBox, Separator, Button)
 from pychilizer import units, database
 from Autodesk.Revit import Exceptions
@@ -11,13 +12,15 @@ op.close_others()
 
 doc = revit.doc
 
+get_elementid_value = get_elementid_value_func()
+
 my_config = script.get_config()
 DEFAULT_LENGTH = 5
 
 def get_text_types(doc):
     text_types = DB.FilteredElementCollector(
         doc).OfClass(DB.TextNoteType).ToElements()
-    dict_text_types = {database.get_name(i): i.Id.IntegerValue for i in text_types}
+    dict_text_types = {database.get_name(i): get_elementid_value(i.Id) for i in text_types}
     return dict_text_types
 
 

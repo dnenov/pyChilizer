@@ -13,6 +13,7 @@ from Autodesk.Revit.UI import *
 from Autodesk.Revit.UI.Selection import *
 from pyrevit import revit, DB, UI
 from pyrevit import forms
+from pyrevit.compat import get_elementid_value_func
 
 #set the active Revit application and document
 app = __revit__.Application
@@ -22,13 +23,15 @@ active_view = doc.ActiveView
 
 sel = revit.get_selection()
 
+get_elementid_value = get_elementid_value_func()
+
 # Selection Filter
 class CustomISelectionFilter(ISelectionFilter):
     def __init__(self, cat):
         self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Id.IntegerValue == int(self.cat):
+        if get_elementid_value(e.Category.Id) == int(self.cat):
             return True
         else:
             return False
