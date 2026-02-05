@@ -1,0 +1,5 @@
+title: Batch rename shared parameters
+tooltip: |
+  Creates new shared project parameters by replacing one text value in the parameter name with another 
+  and copies values from the original parameters.
+  Author: Chloe
