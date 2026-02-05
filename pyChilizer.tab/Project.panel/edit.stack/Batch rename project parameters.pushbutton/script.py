@@ -1,6 +1,6 @@
 
-__title__ = 'Batch rename shared project parameters'
-__doc__ = 'Creates new sharedproject parameters by replacing one text value in the parameter name with another and copies values from the original parameters.'
+__title__ = 'Batch Rename Shared Parameters'
+__doc__ = 'Creates new shared parameters by replacing one text value in the parameter name with another and copies values from the original parameters. Only processes shared parameters (skips project parameters).'
 
 from pyrevit import revit, DB, forms
 import os
@@ -224,7 +224,7 @@ while iterator.MoveNext():
     })
 
 if not candidates:
-    forms.alert("No matching shared project parameters found", exitscript=True)
+    forms.alert("No matching shared parameters found", exitscript=True)
 
 
 #  Show preview to user
