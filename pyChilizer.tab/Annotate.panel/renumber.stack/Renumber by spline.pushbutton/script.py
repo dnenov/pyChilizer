@@ -8,6 +8,7 @@ from Autodesk.Revit.UI.Selection import *
 
 from pyrevit import revit, DB, UI, HOST_APP
 from pyrevit import forms, script
+from pyrevit.compat import get_elementid_value_func
 
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 
@@ -16,6 +17,8 @@ app = __revit__.Application
 doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 active_view = doc.ActiveView
+
+get_elementid_value = get_elementid_value_func()
 
 # Category Ban List
 cat_ban_list = [
@@ -47,7 +50,7 @@ class CustomISelectionFilter(ISelectionFilter):
         self.cat = cat
 
     def AllowElement(self, e):
-        if e.Category.Id.IntegerValue == int(self.cat):
+        if get_elementid_value(e.Category.Id) == int(self.cat):
             return True
         else:
             return False
@@ -58,7 +61,7 @@ class CustomISelectionFilter(ISelectionFilter):
 
 def GetBICFromCat(_cat):
     # Convert categoryId to BuiltInCategory https://git.io/J1d6O @Gui Talarico    
-    bic = System.Enum.ToObject(DB.BuiltInCategory, _cat.Id.IntegerValue)  
+    bic = System.Enum.ToObject(DB.BuiltInCategory, get_elementid_value(_cat.Id))  
     return bic
 
 def GetInstanceParameters(_cat):  
@@ -91,7 +94,7 @@ family_instances = DB.FilteredElementCollector(doc).OfClass(DB.FamilyInstance).T
 # {key: value for value in list}
 cat_dict1 = {f.Category.Name: f.Category \
         for f in [fam for fam in family_instances] \
-        if f.Category.Id.IntegerValue not in cat_ban_list \
+        if get_elementid_value(f.Category.Id) not in cat_ban_list \
         and f.LevelId and f.get_Geometry(DB.Options())} 
 
 cat_rooms = DB.Category.GetCategory(doc, DB.BuiltInCategory.OST_Rooms)

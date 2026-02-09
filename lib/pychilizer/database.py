@@ -2,6 +2,7 @@
 
 from pyrevit import revit, DB, script, forms, HOST_APP, coreutils, PyRevitException
 from pyrevit.framework import List
+from pyrevit.compat import get_elementid_value_func
 from collections import defaultdict
 from pychilizer import units
 from pyrevit.revit.db import query
@@ -9,7 +10,7 @@ from Autodesk.Revit import Exceptions
 import clr
 import System
 
-
+get_elementid_value = get_elementid_value_func()
 
 BIC = DB.BuiltInCategory
 
@@ -40,7 +41,7 @@ def invis_style(doc=revit.doc):
     # get invisible lines graphics style
     for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
         # find style using the category Id
-        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
+        if get_elementid_value(gs.GraphicsStyleCategory.Id) == -2000064:
             return gs
 
 
@@ -504,12 +505,12 @@ def delete_existing_view(view_name, doc=revit.doc):
 def remove_viewtemplate(vt_id, doc=revit.doc):
     viewtype = doc.GetElement(vt_id)
     template_id = viewtype.DefaultTemplateId
-    if template_id.IntegerValue != -1:
+    if get_elementid_value(template_id) != -1:
         if forms.alert(
                 "You are about to remove the View Template"
                 " associated with this View Type. Is that cool with ya?",
                 ok=False, yes=True, no=True, exitscript=True):
-            viewtype.DefaultTemplateId = DB.ElementId(-1)
+            viewtype.DefaultTemplateId = DB.ElementId.InvalidElementId
 
 
 def family_and_type_names(elem, doc):
@@ -562,7 +563,7 @@ def get_param_value_as_string(p):
 
                 return p.AsValueString()
             else:
-                return p.AsElementId().IntegerValue
+                return get_elementid_value(p.AsElementId())
         elif p_storage_type(p) == "Integer":
 
             return p.AsInteger()
@@ -641,9 +642,9 @@ def get_document_model_bics(doc=revit.doc):
         if HOST_APP.is_newer_than(2022):
             bic = category.BuiltInCategory
         else:
-            bic = System.Enum.ToObject(BIC, category.Id.IntegerValue)
+            bic = System.Enum.ToObject(BIC, get_elementid_value(category.Id))
             # print (type(bic), bic)
-        if category.CategoryType==DB.CategoryType.Model and bic!= DB.BuiltInCategory.INVALID and category.Id.IntegerValue <0:
+        if category.CategoryType==DB.CategoryType.Model and bic!= DB.BuiltInCategory.INVALID and get_elementid_value(category.Id) <0:
             built_in_categories.append(bic)
     return built_in_categories
 

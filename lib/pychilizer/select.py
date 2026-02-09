@@ -1,8 +1,11 @@
 from pyrevit import revit, DB, forms
+from pyrevit.compat import get_elementid_value_func
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 from Autodesk.Revit import Exceptions
 import rpw
 from pychilizer import database
+
+get_elementid_value = get_elementid_value_func()
 
 BIC = DB.BuiltInCategory
 
@@ -12,7 +15,7 @@ class CatFilter(ISelectionFilter):
 
     def AllowElement(self, elem):
         try:
-            if elem.Category.Id.IntegerValue == int(self.cat):
+            if get_elementid_value(elem.Category.Id) == int(self.cat):
                 return True
             else:
                 return False
@@ -52,6 +55,6 @@ def preselection_with_filter(cat):
     pre_selection = []
     for id in rpw.revit.uidoc.Selection.GetElementIds():
         sel_el = revit.doc.GetElement(id)
-        if sel_el.Category.Id.IntegerValue == int(cat):
+        if get_elementid_value(sel_el.Category.Id) == int(cat):
             pre_selection.append(sel_el)
     return pre_selection

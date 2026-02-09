@@ -3,6 +3,7 @@
  You can chose if you want to use/create the Filled Region types matching the name or use visibility overrides."""
 from pyrevit.framework import List
 from pyrevit import revit, DB, forms, script
+from pyrevit.compat import get_elementid_value_func
 import xlrd
 from rpw.ui.forms import (FlexForm, Label, ComboBox, Separator, Button, TextBox)
 from collections import OrderedDict
@@ -12,6 +13,7 @@ from pychilizer import units, database
 
 config = script.get_config()
 
+get_elementid_value = get_elementid_value_func()
 
 def translate_rectg_vert(rec, vert_offset):
     # offset recgtangles with a given vertical offset
@@ -53,7 +55,7 @@ def invis_style(doc=revit.doc):
     # get invisible lines graphics style
     for gs in DB.FilteredElementCollector(doc).OfClass(DB.GraphicsStyle):
         # find style using the category Id
-        if gs.GraphicsStyleCategory.Id.IntegerValue == -2000064:
+        if get_elementid_value(gs.GraphicsStyleCategory.Id) == -2000064:
             return gs
 
 
